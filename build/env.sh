@@ -18,13 +18,6 @@ if [ ! -L "$octanodir/go-spectrum" ]; then
     cd "$root"
 fi
 
-if [ ! -L "$octanodir/go-supply" ]; then
-    mkdir -p "$octanodir"
-    cd "$octanodir"
-    ln -s ../../../../../. go-supply
-    cd "$root"
-fi
-
 # Set up the environment to use the workspace.
 GOPATH="$workspace"
 export GOPATH
