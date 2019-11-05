@@ -1,0 +1,28 @@
+
+{
+  "threads":4,
+  "crawler": {
+    "enabled": true,
+    "interval": "500ms",
+    "routines": 5
+  },
+  "api": {
+    "enabled": false,
+    "port": "3000",
+    "nodemap": {
+      "enabled": true,
+      "mode": "server",
+      "mmdb": "GeoLite2-City.mmdb"
+    },
+  },
+  "mongo": {
+    "address": "127.0.0.1:27017",
+    "database": "spectrum-test",
+    "user": "spectrum",
+    "password": "UBQ4Lyfe"
+  },
+  "rpc": {
+    "url": "http://127.0.0.1:8588",
+    "timeout": "60s"
+  }
+}
