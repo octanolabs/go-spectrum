@@ -91,81 +91,6 @@ func (m *MongoDB) IsInDB(height uint64, hash string) (bool, bool) {
 	return true, false
 }
 
-func (m *MongoDB) IndexHead() [1]uint64 {
-	var store models.Store
-
-	err := m.db.C(models.STORE).Find(&bson.M{}).Limit(1).One(&store)
-
-	if err != nil {
-		log.Fatalf("Error during initialization: %v", err)
-	}
-
-	return store.Sync
-}
-
-func (m *MongoDB) UpdateStore(latestBlock *models.Block, synctype string) error {
-
-	head := m.IndexHead()
-
-	switch synctype {
-
-	// This case will fire when initial sync is complete and it's just adding blocks as they come in
-	case "top":
-
-		// If the block behind is present the sync reached the top of the db
-
-		if m.IsPresent(latestBlock.Number - 1) {
-			head = [1]uint64{0}
-		} else {
-			head[0] = latestBlock.Number
-		}
-
-		err := m.db.C(models.STORE).Update(&bson.M{"symbol": "sync"}, &bson.M{"symbol": "sync", "sync": head})
-
-		if err != nil {
-			return err
-		}
-
-		// This case will fire when there is a sync active and the sync variable is being used by another crawler routine
-	case "":
-
-		// Setting it to 1 << 62 because omitting the field in the update method makes the key disappear instead of not updating it
-		// 1<< 62 is greater than any blocknumber so next case will always trigger
-
-		err := m.db.C(models.STORE).Update(&bson.M{"symbol": "sync"}, &bson.M{"symbol": "sync", "sync": [1]uint64{1 << 62}})
-
-		if err != nil {
-			return err
-		}
-
-		// This case will fire when it's syncing backwards
-	case "back", "first":
-
-		// To check if we're at the top of the db we check one block behind
-
-		if m.IsPresent(latestBlock.Number - 1) {
-			head = [1]uint64{0}
-		} else {
-			head[0] = latestBlock.Number
-		}
-
-		err := m.db.C(models.STORE).Update(&bson.M{"symbol": "sync"}, &bson.M{"symbol": "sync", "sync": head})
-
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (m *MongoDB) SupplyObject(symbol string) (models.Store, error) {
-	var store models.Store
-
-	err := m.db.C(models.STORE).Find(bson.M{"symbol": symbol}).One(&store)
-	return store, err
-}
-
 func (m *MongoDB) Purge(height uint64) {
 
 	// TODO: make this better
@@ -183,14 +108,4 @@ func (m *MongoDB) Purge(height uint64) {
 
 func (m *MongoDB) Ping() error {
 	return m.session.Ping()
-}
-
-func (m *MongoDB) RemoveSupplyBlock(height uint64) error {
-	selector := &bson.M{"number": height}
-
-	bulk := m.db.C(models.SBLOCK).Bulk()
-	bulk.RemoveAll(selector)
-	_, err := bulk.Run()
-
-	return err
 }
