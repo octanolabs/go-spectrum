@@ -42,9 +42,7 @@ type Database interface {
 
 	// storage
 	IsFirstRun() bool
-	IndexHead() [1]uint64
 
-	UpdateStore(latestBlock *models.Block, synctype string) error
 	SupplyObject(symbol string) (models.Store, error)
 	Ping() error
 
