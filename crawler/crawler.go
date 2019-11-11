@@ -46,13 +46,12 @@ type Database interface {
 	SupplyObject(symbol string) (models.Store, error)
 	Ping() error
 
-	LatestSupplyBlock() (models.Sblock, error)
-	SupplyBlockByNumber(height uint64) (*models.Sblock, error)
-	Purge(height uint64)
+	LatestSupplyBlock() (models.Block, error)
+	SupplyBlockByNumber(height uint64) (*models.Block, error)
 	RemoveSupplyBlock(height uint64) error
 
 	// setters
-	AddSupplyBlock(b models.Sblock) error
+	AddSupplyBlock(b models.Block) error
 }
 
 type Crawler struct {

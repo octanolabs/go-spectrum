@@ -102,7 +102,7 @@ func (c *Crawler) Sync(block *models.Block, syncUtility Sync) {
 		// clear cache
 		log.Println("Purging block cache.")
 		c.sbCache.Purge()
-		// remove parent sblock from db
+		// remove parent Block from db
 		err := c.backend.RemoveSupplyBlock(block.Number - 1)
 		if err != nil {
 			log.Errorf("Error removing supply block: %v", err)
@@ -120,7 +120,7 @@ func (c *Crawler) Sync(block *models.Block, syncUtility Sync) {
 		var supply = new(big.Int)
 		supply.Add(pSupply, minted)
 
-		sblock := models.Sblock{
+		Block := models.Block{
 			Number:       block.Number,
 			Hash:         block.Hash,
 			Timestamp:    block.Timestamp,
@@ -131,7 +131,7 @@ func (c *Crawler) Sync(block *models.Block, syncUtility Sync) {
 		}
 
 		// write block to db
-		err := c.backend.AddSupplyBlock(sblock)
+		err := c.backend.AddSupplyBlock(Block)
 		if err != nil {
 			log.Errorf("Error adding block: %v", err)
 		}
