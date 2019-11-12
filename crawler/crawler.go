@@ -17,7 +17,7 @@ const (
 	sbCacheLimit = 10
 )
 
-type sbCache struct {
+type blockCache struct {
 	Supply *big.Int `json:"supply"`
 	Hash   string   `json:"hash"`
 }
@@ -42,17 +42,25 @@ type Database interface {
 
 	// storage
 	IsFirstRun() bool
-
-	SupplyObject(symbol string) (models.Store, error)
+	ChainStore(symbol string) (models.Store, error)
 	Ping() error
 
-	LatestSupplyBlock() (models.Block, error)
-	SupplyBlockByNumber(height uint64) (*models.Block, error)
-	RemoveSupplyBlock(height uint64) error
+	// getters
+
+	LatestBlock() (models.Block, error)
+	BlockByNumber(height uint64) (*models.Block, error)
+	PurgeBlock(height uint64) error
 
 	// setters
-	AddSupplyBlock(b models.Block) error
+	AddTransaction(tx *models.Transaction) error
+	AddTokenTransfer(tt *models.TokenTransfer) error
+	AddUncle(u *models.Uncle) error
+	AddBlock(b *models.Block) error
+	AddForkedBlock(b *models.Block) error
 }
+
+//TODO: crawler:
+// add back explorer code
 
 type Crawler struct {
 	backend Database
@@ -62,7 +70,7 @@ type Crawler struct {
 		syncing bool
 		reorg   bool
 	}
-	sbCache *lru.Cache // Cache for the most recent supply blocks
+	sbCache *lru.Cache // Cache for the most recent blocks
 }
 
 type logObject struct {

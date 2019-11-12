@@ -37,22 +37,22 @@ type ApiServer struct {
 
 type AccountTxn struct {
 	Txns  []models.Transaction `bson:"txns" json:"txns"`
-	Total int                  `bson:"total" json:"total"`
+	Total int64                `bson:"total" json:"total"`
 }
 
 type AccountTokenTransfer struct {
 	Txns  []models.TokenTransfer `bson:"txns" json:"txns"`
-	Total int                    `bson:"total" json:"total"`
+	Total int64                  `bson:"total" json:"total"`
 }
 
 type BlockRes struct {
 	Blocks []models.Block `bson:"blocks" json:"blocks"`
-	Total  int            `bson:"total" json:"total"`
+	Total  int64          `bson:"total" json:"total"`
 }
 
 type UncleRes struct {
 	Uncles []models.Uncle `bson:"uncles" json:"uncles"`
-	Total  int            `bson:"total" json:"total"`
+	Total  int64          `bson:"total" json:"total"`
 }
 
 func checkNodes() {
@@ -138,7 +138,7 @@ func (a *ApiServer) Start() {
 	r.HandleFunc("/latesttransfersbytoken/{hash}", a.getLatestTransfersByToken).Methods("GET")
 	r.HandleFunc("/tokentransfersbyaccount/{token}/{account}", a.getTokenTransfersByAccount).Methods("GET")
 	r.HandleFunc("/uncle/{hash}", a.getUncleByHash).Methods("GET")
-	r.HandleFunc("/charts/{chart}/{limit}", a.getChartData).Methods("GET")
+	//r.HandleFunc("/charts/{chart}/{limit}", a.getChartData).Methods("GET")
 	r.HandleFunc("/geodata", a.getGeodata).Methods("GET")
 
 	r.Use(loggingMiddleware)
@@ -227,7 +227,7 @@ func (a *ApiServer) getBlockTransactions(w http.ResponseWriter, r *http.Request)
 		a.sendError(w, http.StatusBadRequest, uerr.Error())
 		return
 	}
-	block, err := a.backend.BlockTransactions(number)
+	block, err := a.backend.TransactionsByBlockNumber(number)
 	if err != nil {
 		a.sendError(w, http.StatusBadRequest, err.Error())
 		return
@@ -276,7 +276,7 @@ func (a *ApiServer) getLatestBlocks(w http.ResponseWriter, r *http.Request) {
 
 func (a *ApiServer) getLatestForkedBlocks(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
-	limit, err := strconv.Atoi(params["limit"])
+	limit, err := strconv.ParseInt(params["limit"], 10, 0)
 	if err != nil {
 		a.sendError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -294,7 +294,7 @@ func (a *ApiServer) getLatestForkedBlocks(w http.ResponseWriter, r *http.Request
 
 func (a *ApiServer) getLatestTransactions(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
-	limit, err := strconv.Atoi(params["limit"])
+	limit, err := strconv.ParseInt(params["limit"], 10, 0)
 	if err != nil {
 		a.sendError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -364,7 +364,7 @@ func (a *ApiServer) getLatestTokenTransfersByAccount(w http.ResponseWriter, r *h
 
 func (a *ApiServer) getLatestTokenTransfers(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
-	limit, err := strconv.Atoi(params["limit"])
+	limit, err := strconv.ParseInt(params["limit"], 10, 0)
 	if err != nil {
 		a.sendError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -393,7 +393,7 @@ func (a *ApiServer) getLatestTokenTransfers(w http.ResponseWriter, r *http.Reque
 
 func (a *ApiServer) getLatestUncles(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
-	limit, err := strconv.Atoi(params["limit"])
+	limit, err := strconv.ParseInt(params["limit"], 10, 0)
 	if err != nil {
 		a.sendError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -447,7 +447,7 @@ func (a *ApiServer) getTokenTransfersByAccount(w http.ResponseWriter, r *http.Re
 		a.sendError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	count, err := a.backend.TokenTransferByAccountCount(params["token"], params["account"])
+	count, err := a.backend.TokenTransfersByAccountCount(params["token"], params["account"])
 	if err != nil {
 		a.sendError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -460,7 +460,7 @@ func (a *ApiServer) getTokenTransfersByAccount(w http.ResponseWriter, r *http.Re
 
 func (a *ApiServer) getLatestTransfersByToken(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
-	txns, err := a.backend.LatestTransfersByToken(params["hash"])
+	txns, err := a.backend.LatestTransfersOfToken(params["hash"])
 	if err != nil {
 		a.sendError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -490,7 +490,7 @@ func (a *ApiServer) getSupply(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	supplyOnly := r.URL.Query().Get("supplyOnly")
 
-	store, err := a.backend.SupplyObject(params["symbol"])
+	store, err := a.backend.ChainStore(params["symbol"])
 	if err != nil {
 		a.sendError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -509,40 +509,40 @@ func (a *ApiServer) getSupply(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (a *ApiServer) getChartData(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	miner := r.URL.Query().Get("miner")
-
-	if params["chart"] == "poolhashrate" && miner == "" {
-		a.sendError(w, http.StatusInternalServerError, "Please specify one miner address")
-		return
-	}
-
-	limit, err := strconv.ParseInt(params["limit"], 10, 0)
-
-	if err != nil {
-		limit = 1 << 62
-	}
-
-	switch params["chart"] {
-	case "minedblocks":
-		data, err := a.backend.ChartDataML(params["chart"], limit, miner)
-
-		if err != nil {
-			a.sendError(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		a.sendJson(w, http.StatusOK, data)
-	default:
-		data, err := a.backend.ChartData(params["chart"], limit)
-
-		if err != nil {
-			a.sendError(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		a.sendJson(w, http.StatusOK, data)
-	}
-}
+//func (a *ApiServer) getChartData(w http.ResponseWriter, r *http.Request) {
+//	params := mux.Vars(r)
+//	miner := r.URL.Query().Get("miner")
+//
+//	if params["chart"] == "poolhashrate" && miner == "" {
+//		a.sendError(w, http.StatusInternalServerError, "Please specify one miner address")
+//		return
+//	}
+//
+//	limit, err := strconv.ParseInt(params["limit"], 10, 0)
+//
+//	if err != nil {
+//		limit = 1 << 62
+//	}
+//
+//	switch params["chart"] {
+//	case "minedblocks":
+//		data, err := a.backend.ChartDataML(params["chart"], limit, miner)
+//
+//		if err != nil {
+//			a.sendError(w, http.StatusInternalServerError, err.Error())
+//			return
+//		}
+//		a.sendJson(w, http.StatusOK, data)
+//	default:
+//		data, err := a.backend.ChartData(params["chart"], limit)
+//
+//		if err != nil {
+//			a.sendError(w, http.StatusInternalServerError, err.Error())
+//			return
+//		}
+//		a.sendJson(w, http.StatusOK, data)
+//	}
+//}
 
 func (a *ApiServer) sendError(w http.ResponseWriter, code int, msg string) {
 	a.sendJson(w, code, map[string]string{"error": msg})

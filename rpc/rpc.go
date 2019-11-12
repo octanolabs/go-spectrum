@@ -15,6 +15,8 @@ import (
 	"github.com/octanolabs/go-spectrum/util"
 )
 
+// TODO: this should use go-ubiq/rpc
+
 type Config struct {
 	Url     string
 	Timeout string

@@ -30,7 +30,7 @@ type MongoDB struct {
 
 // todo:
 // √ Store
-// Add back indexes
+// √ Add back indexes
 // √ continue moving methods to mongo driver
 // √ switch the supply code to explorer code
 
@@ -80,7 +80,7 @@ func (m *MongoDB) Ping() error {
 
 func (m *MongoDB) PurgeBlock(height uint64) error {
 
-	r, err := m.C(models.BLOCKS).DeleteOne(context.Background(), bson.M{"number": height}, options.Delete())
+	r, err := m.C(models.BLOCKS).DeleteOne(context.Background(), bson.M{"blockNumber": height}, options.Delete())
 
 	if err != nil {
 		return err

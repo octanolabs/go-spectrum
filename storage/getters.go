@@ -2,8 +2,8 @@ package storage
 
 import (
 	"context"
-	"github.com/globalsign/mgo/bson"
 	"github.com/octanolabs/go-spectrum/models"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
@@ -24,7 +24,7 @@ func (m *MongoDB) ChainStore(symbol string) (models.Store, error) {
 func (m *MongoDB) BlockByNumber(number uint64) (*models.Block, error) {
 	var block *models.Block
 
-	err := m.C(models.BLOCK).FindOne(context.Background(), bson.M{"number": number}, options.FindOne()).Decode(&block)
+	err := m.C(models.BLOCKS).FindOne(context.Background(), bson.M{"number": number}, options.FindOne()).Decode(&block)
 
 	return block, err
 }
@@ -32,14 +32,14 @@ func (m *MongoDB) BlockByNumber(number uint64) (*models.Block, error) {
 func (m *MongoDB) BlockByHash(hash string) (*models.Block, error) {
 	var block *models.Block
 
-	err := m.C(models.BLOCK).FindOne(context.Background(), bson.M{"hash": hash}, options.FindOne()).Decode(&block)
+	err := m.C(models.BLOCKS).FindOne(context.Background(), bson.M{"hash": hash}, options.FindOne()).Decode(&block)
 	return block, err
 }
 
 func (m *MongoDB) LatestBlock() (models.Block, error) {
 	var block models.Block
 
-	err := m.C(models.BLOCK).FindOne(context.Background(), bson.M{}, options.FindOne().SetSort("-number")).Decode(&block)
+	err := m.C(models.BLOCKS).FindOne(context.Background(), bson.M{}, options.FindOne().SetSort("-number")).Decode(&block)
 	return block, err
 }
 
@@ -199,7 +199,7 @@ func (m *MongoDB) TokenTransfersByAccount(token string, account string) ([]model
 	return transfers, err
 }
 
-func (m *MongoDB) TokenTransferByAccountCount(token string, account string) (int64, error) {
+func (m *MongoDB) TokenTransfersByAccountCount(token string, account string) (int64, error) {
 	count, err := m.C(models.TRANSFERS).CountDocuments(context.Background(), bson.M{"$or": []bson.M{{"$and": []bson.M{{"from": account}, {"contract": token}}}, {"$and": []bson.M{{"to": account}, {"contract": token}}}}}, options.Count())
 	return count, err
 }

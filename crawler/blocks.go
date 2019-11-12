@@ -12,7 +12,7 @@ func (c *Crawler) SyncLoop() {
 	var currentBlock uint64
 
 	// get db head
-	indexHead, err := c.backend.LatestSupplyBlock()
+	indexHead, err := c.backend.LatestBlock()
 	if err != nil {
 		log.Errorf("Error getting latest supply block: %v", err)
 	}
@@ -62,11 +62,27 @@ mainloop:
 func (c *Crawler) Sync(block *models.Block, syncUtility Sync) {
 	syncUtility.recieve()
 
+	// TODO: finish refactoring
+
 	var (
 		uncles  []*models.Uncle
 		pSupply = new(big.Int)
 		pHash   string
 	)
+
+	// get parent block info
+	prevBlock, err := c.getPreviousBlock(block.Number)
+
+	if err != nil {
+		log.Errorf("Error getting previous block: %v", err)
+	}
+
+	pSupply = prevBlock.Supply
+	pHash = prevBlock.Hash
+
+	if pHash != block.ParentHash {
+		c.handleReorg(block, syncUtility)
+	}
 
 	// populate uncles
 	if len(block.Uncles) > 0 {
@@ -76,80 +92,100 @@ func (c *Crawler) Sync(block *models.Block, syncUtility Sync) {
 	// calculate rewards
 	blockReward, uncleRewards, minted := AccumulateRewards(block, uncles)
 
+	// add minted to supply
+	var supply = new(big.Int)
+	supply.Add(pSupply, minted)
+
+	block = &models.Block{
+		Number:       block.Number,
+		Hash:         block.Hash,
+		Timestamp:    block.Timestamp,
+		BlockReward:  blockReward.String(),
+		UncleRewards: uncleRewards.String(),
+		Minted:       minted.String(),
+		Supply:       supply.String(),
+	}
+
+	// write block to db
+	err = c.backend.AddBlock(block)
+	if err != nil {
+		log.Errorf("Error adding block: %v", err)
+	}
+
+	// add required block info to cache for next iteration
+	c.sbCache.Add(block.Number, blockCache{Supply: supply, Hash: block.Hash})
+
+	syncUtility.log(block.Number, minted, supply)
+	syncUtility.send(block.Number + 1)
+	syncUtility.done()
+}
+
+func (c *Crawler) getPreviousBlock(blockNumber uint64) (blockCache, error) {
+
 	// get parent block info from cache
-	if cached, ok := c.sbCache.Get(block.Number - 1); ok {
-		pSupply = cached.(sbCache).Supply
-		pHash = cached.(sbCache).Hash
+
+	if cached, ok := c.sbCache.Get(blockNumber - 1); ok {
+		return cached.(blockCache), nil
 	} else {
 		// parent block not cached, fetch from db
-		log.Warnf("block %v not found in cache, retrieving from database", block.Number-1)
-		lsb, err := c.backend.SupplyBlockByNumber(block.Number - 1)
+		log.Warnf("block %v not found in cache, retrieving from database", blockNumber-1)
+		latestBlock, err := c.backend.BlockByNumber(blockNumber - 1)
 		if err != nil {
-			log.Errorf("Error getting latest supply block: %v", err)
-			syncUtility.send(block.Number)
-			syncUtility.done()
-		} else {
-			sprev, _ := new(big.Int).SetString(lsb.Supply, 10)
-			pSupply = sprev
-			pHash = lsb.Hash
+			return blockCache{}, err
 		}
+		sprev, _ := new(big.Int).SetString(latestBlock.Supply, 10)
+		return blockCache{sprev, latestBlock.Hash}, nil
+	}
+}
+
+func (c *Crawler) handleReorg(b *models.Block, syncUtility Sync) {
+
+	// a reorg has occured
+	log.Warnf("Reorg detected at block %v", b.Number-1)
+
+	// clear cache
+	log.Warnf("Purging block cache.")
+	c.sbCache.Purge()
+
+	// sync forked Block and remove parent Block from db
+	c.syncForkedBlock(b, syncUtility)
+
+	log.Warnf("Forked block %v synced and removed from blocks collection.", b.Number-1)
+
+	// update state
+	c.state.reorg = true
+	c.state.syncing = false
+	syncUtility.close(b.Number)
+}
+
+func (c *Crawler) syncForkedBlock(b *models.Block, syncUtility Sync) {
+
+	reorgHeight := b.Number - 1
+
+	dbBlock, err := c.backend.BlockByNumber(reorgHeight)
+	if err != nil {
+		log.Errorf("Error getting forked block: %v", err)
 	}
 
-	// check parent hash incase a reorg has occured.
-	if pHash != block.ParentHash {
-		// a reorg has occured
-		log.Warnf("Reorg detected at block %v", block.Number-1)
-		// clear cache
-		log.Println("Purging block cache.")
-		c.sbCache.Purge()
-		// remove parent Block from db
-		err := c.backend.RemoveSupplyBlock(block.Number - 1)
-		if err != nil {
-			log.Errorf("Error removing supply block: %v", err)
-			syncUtility.done()
-		} else {
-			log.Printf("Block %v removed from db.", block.Number-1)
-			// update state
-			c.state.reorg = true
-			c.state.syncing = false
-			syncUtility.close(block.Number)
-			//syncUtility.done()
-		}
-	} else {
-		// add minted to supply
-		var supply = new(big.Int)
-		supply.Add(pSupply, minted)
-
-		Block := models.Block{
-			Number:       block.Number,
-			Hash:         block.Hash,
-			Timestamp:    block.Timestamp,
-			BlockReward:  blockReward.String(),
-			UncleRewards: uncleRewards.String(),
-			Minted:       minted.String(),
-			Supply:       supply.String(),
-		}
-
-		// write block to db
-		err := c.backend.AddSupplyBlock(Block)
-		if err != nil {
-			log.Errorf("Error adding block: %v", err)
-		}
-
-		// add required block info to cache for next iteration
-		c.sbCache.Add(block.Number, sbCache{Supply: supply, Hash: block.Hash})
-
-		syncUtility.log(block.Number, minted, supply)
-		syncUtility.send(block.Number + 1)
-		syncUtility.done()
+	err = c.backend.AddForkedBlock(dbBlock)
+	if err != nil {
+		log.Errorf("Error getting reorg'd block: %v", err)
 	}
+
+	err = c.backend.PurgeBlock(reorgHeight)
+	if err != nil {
+		log.Errorf("Error purging reorg'd block: %v", err)
+	}
+
+	log.Warnf("HEAD - %v %v", b.Number, b.Hash)
+	log.Warnf("FORKED - %v %v", dbBlock.Number, dbBlock.Hash)
 }
 
 func (c *Crawler) GetUncles(uncles []string, height uint64) []*models.Uncle {
 
 	var u []*models.Uncle
 
-	for k, _ := range uncles {
+	for k := range uncles {
 		uncle, err := c.rpc.GetUncleByBlockNumberAndIndex(height, k)
 		if err != nil {
 			log.Errorf("Error getting uncle: %v", err)

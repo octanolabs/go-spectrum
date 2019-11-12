@@ -14,8 +14,8 @@ func (rbn *RawBlockDetails) Convert() (uint64, string) {
 }
 
 type RawBlock struct {
-	//TODO: For indexing purposes "number" should be renamed to "blockNumber"
-	Number          string           `bson:"number" json:"number"`
+	//TODO: For indexing purposes "number" should be renamed to "blockNumber"?
+	Number          string           `bson:"blockNumber" json:"blockNumber"`
 	Timestamp       string           `bson:"timestamp" json:"timestamp"`
 	Transactions    []RawTransaction `bson:"transactions" json:"transactions"`
 	Hash            string           `bson:"hash" json:"hash"`

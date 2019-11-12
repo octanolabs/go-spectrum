@@ -3,6 +3,8 @@ package storage
 import (
 	"context"
 	log "github.com/sirupsen/logrus"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/octanolabs/go-spectrum/models"
 )
@@ -34,141 +36,78 @@ func (m *MongoDB) Init() {
 		Supply:    "36108073197716300000000000",
 	}
 
-	collection := m.C(models.BLOCK)
+	collection := m.C(models.BLOCKS)
 
 	if _, err := collection.InsertOne(context.Background(), genesis); err != nil {
 		log.Fatalf("Could not init supply block: %v", err)
 	}
 
-	//m.InitIndexes()
+	m.initIndexes()
 
 	log.Warnf("Initialized sysStore, genesis, indexes")
 }
 
-//func (m *MongoDB) InitIndexes() {
-//
-//	ss := m.db.C(models.BLOCKS)
-//
-//	blockno := mgo.Index{
-//		Key:        []string{"number"},
-//		Unique:     true,
-//		Background: true,
-//	}
-//	index := mgo.Index{
-//		Key:        []string{"hash"},
-//		Unique:     true,
-//		Background: true,
-//	}
-//
-//	err := ss.EnsureIndex(blockno)
-//	if err != nil {
-//		log.Errorf("Could not init index for blocks: %v", err)
-//	}
-//
-//	err = ss.EnsureIndex(index)
-//	if err != nil {
-//		log.Errorf("Could not init index for blocks: %v", err)
-//	}
-//
-//	ss = m.db.C(models.REORGS)
-//
-//	reorg := mgo.Index{
-//		Key:        []string{"hash"},
-//		Unique:     true,
-//		Background: true,
-//	}
-//
-//	err = ss.EnsureIndex(reorg)
-//	if err != nil {
-//		log.Errorf("Could not init index for reorgs: %v", err)
-//	}
-//
-//	ss = m.db.C(models.UNCLES)
-//
-//	uncle := mgo.Index{
-//		Key:        []string{"hash"},
-//		Unique:     true,
-//		Background: true,
-//	}
-//
-//	err = ss.EnsureIndex(uncle)
-//	if err != nil {
-//		log.Errorf("Could not init index for uncles: %v", err)
-//	}
-//
-//	ss = m.db.C(models.TXNS)
-//
-//	block := mgo.Index{
-//		Key:        []string{"blockNumber"},
-//		Background: true,
-//	}
-//
-//	/* Index already defined for blocks */
-//
-//	from := mgo.Index{
-//		Key:        []string{"from"},
-//		Background: true,
-//	}
-//	to := mgo.Index{
-//		Key:        []string{"to"},
-//		Background: true,
-//	}
-//	contractAddress := mgo.Index{
-//		Key:        []string{"contractAddress"},
-//		Background: true,
-//	}
-//
-//	err = ss.EnsureIndex(block)
-//	if err != nil {
-//		log.Errorf("Could not init index for transactions: %v", err)
-//	}
-//	err = ss.EnsureIndex(index)
-//	if err != nil {
-//		log.Errorf("Could not init index for transactions: %v", err)
-//	}
-//	err = ss.EnsureIndex(from)
-//	if err != nil {
-//		log.Errorf("Could not init index for transactions: %v", err)
-//	}
-//	err = ss.EnsureIndex(to)
-//	if err != nil {
-//		log.Errorf("Could not init index for transactions: %v", err)
-//	}
-//	err = ss.EnsureIndex(contractAddress)
-//	if err != nil {
-//		log.Errorf("Could not init index for transactions: %v", err)
-//	}
-//
-//	ss = m.db.C(models.TRANSFERS)
-//
-//	contract := mgo.Index{
-//		Key:        []string{"contract"},
-//		Background: true,
-//	}
-//
-//	/* Using the ones defined for regular transactions */
-//
-//	err = ss.EnsureIndex(block)
-//	if err != nil {
-//		log.Errorf("Could not init index for tokentransfers: %v", err)
-//	}
-//	err = ss.EnsureIndex(index)
-//	if err != nil {
-//		log.Errorf("Could not init index for tokentransfers: %v", err)
-//	}
-//	err = ss.EnsureIndex(from)
-//	if err != nil {
-//		log.Errorf("Could not init index for tokentransfers: %v", err)
-//	}
-//	err = ss.EnsureIndex(to)
-//	if err != nil {
-//		log.Errorf("Could not init index for tokentransfers: %v", err)
-//	}
-//	err = ss.EnsureIndex(contract)
-//	if err != nil {
-//		log.Errorf("Could not init index for tokentransfers: %v", err)
-//	}
-//
-//	log.Warnf("Intialized database indexes")
-//
-//}
+func (m *MongoDB) initIndexes() {
+
+	iv := m.C(models.BLOCKS).Indexes()
+
+	bnIdxModel := mongo.IndexModel{[]string{"number"}, options.Index().SetName("blocksNumberIndex").SetUnique(true).SetBackground(true)}
+	bhIdxModel := mongo.IndexModel{[]string{"hash"}, options.Index().SetName("blocksHashIndex").SetUnique(true).SetBackground(true)}
+
+	_, err := iv.CreateMany(context.Background(), []mongo.IndexModel{bnIdxModel, bhIdxModel}, options.CreateIndexes())
+
+	if err != nil {
+		log.Fatalf("Error, could not init indexes for blocks: %v", err)
+	}
+
+	iv = m.C(models.REORGS).Indexes()
+
+	rIdxModel := mongo.IndexModel{[]string{"hash"}, options.Index().SetName("reorgsIndex").SetUnique(true).SetBackground(true)}
+
+	_, err = iv.CreateOne(context.Background(), rIdxModel, options.CreateIndexes())
+
+	if err != nil {
+		log.Fatalf("Error, could not init index %v: %v", rIdxModel.Options.Name, err)
+	}
+
+	iv = m.C(models.UNCLES).Indexes()
+
+	uIdxModel := mongo.IndexModel{[]string{"hash"}, options.Index().SetName("unclesIndex").SetUnique(true).SetBackground(true)}
+
+	_, err = iv.CreateOne(context.Background(), uIdxModel, options.CreateIndexes())
+
+	if err != nil {
+		log.Fatalf("Error, could not init index %v: %v", uIdxModel.Options.Name, err)
+	}
+
+	iv = m.C(models.TXNS).Indexes()
+
+	txHIdxModel := mongo.IndexModel{[]string{"hash"}, options.Index().SetName("txHashIndex").SetUnique(true).SetBackground(true)}
+	txBNIdxModel := mongo.IndexModel{[]string{"blockNumber"}, options.Index().SetName("txBlockNumberIndex").SetBackground(true)}
+	txFIdxModel := mongo.IndexModel{[]string{"from"}, options.Index().SetName("txFromIndex").SetBackground(true)}
+	txTIdxModel := mongo.IndexModel{[]string{"to"}, options.Index().SetName("txToIndex").SetBackground(true)}
+	txCAIdxModel := mongo.IndexModel{[]string{"contractAddress"}, options.Index().SetName("txContractAddressIndex").SetBackground(true)}
+
+	_, err = iv.CreateMany(context.Background(), []mongo.IndexModel{txBNIdxModel, txHIdxModel, txFIdxModel, txTIdxModel, txCAIdxModel}, options.CreateIndexes())
+
+	if err != nil {
+		log.Fatalf("Error, could not init indexes for transactions: %v", err)
+	}
+
+	iv = m.C(models.TRANSFERS).Indexes()
+
+	trBNIdxModel := mongo.IndexModel{[]string{"blockNumber"}, options.Index().SetName("trBlockNumberIndex").SetBackground(true)}
+	trHIdxModel := mongo.IndexModel{[]string{"hash"}, options.Index().SetName("trTxHashIndex").SetBackground(true)}
+	trFIdxModel := mongo.IndexModel{[]string{"from"}, options.Index().SetName("trFromIndex").SetBackground(true)}
+	trTIdxModel := mongo.IndexModel{[]string{"to"}, options.Index().SetName("trToIndex").SetBackground(true)}
+	trCIdxModel := mongo.IndexModel{[]string{"contract"}, options.Index().SetName("trContractIndex").SetBackground(true)}
+
+	_, err = iv.CreateMany(context.Background(), []mongo.IndexModel{trBNIdxModel, trHIdxModel, trFIdxModel, trTIdxModel, trCIdxModel}, options.CreateIndexes())
+
+	if err != nil {
+		log.Fatalf("Error, could not init indexes for transfers: %v", err)
+	}
+
+	log.Warnf("Intialized database indexes")
+
+}
