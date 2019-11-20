@@ -12,6 +12,36 @@ var (
 	big32                = big.NewInt(32)
 )
 
+type logObject struct {
+	blockNo        uint64
+	blocks         int
+	txns           int
+	tokentransfers int
+	uncleNo        int
+	minted         *big.Int
+	supply         *big.Int
+}
+
+func (l *logObject) add(o *logObject) {
+	l.blockNo = o.blockNo
+	l.blocks++
+	l.txns += o.txns
+	l.tokentransfers += o.tokentransfers
+	l.uncleNo += o.uncleNo
+	l.minted.Add(l.minted, o.minted)
+	l.supply = o.supply
+}
+
+func (l *logObject) clear() {
+	l.blockNo = 0
+	l.blocks = 0
+	l.txns = 0
+	l.tokentransfers = 0
+	l.uncleNo = 0
+	l.minted = new(big.Int)
+	l.supply = new(big.Int)
+}
+
 // AccumulateRewards calculates the mining reward of the given block.
 // The total reward consists of the static block reward and rewards for
 // included uncles. The total rewards of each uncle block is also returned.

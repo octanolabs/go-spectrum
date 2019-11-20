@@ -2,11 +2,18 @@ package crawler
 
 import (
 	"math/big"
+	"sync"
 
 	log "github.com/sirupsen/logrus"
 
 	"github.com/octanolabs/go-spectrum/models"
 )
+
+type data struct {
+	avgGasPrice, txFees *big.Int
+	tokentransfers      int
+	sync.Mutex
+}
 
 func (c *Crawler) SyncLoop() {
 	var currentBlock uint64
@@ -65,9 +72,11 @@ func (c *Crawler) Sync(block *models.Block, syncUtility Sync) {
 	// TODO: finish refactoring
 
 	var (
-		uncles  []*models.Uncle
-		pSupply = new(big.Int)
-		pHash   string
+		uncles              []*models.Uncle
+		pSupply             = new(big.Int)
+		pHash               string
+		avgGasPrice, txFees *big.Int
+		tokentransfers      int
 	)
 
 	// get parent block info
@@ -86,7 +95,7 @@ func (c *Crawler) Sync(block *models.Block, syncUtility Sync) {
 
 	// populate uncles
 	if len(block.Uncles) > 0 {
-		uncles = c.GetUncles(block.Uncles, block.Number)
+		uncles = c.rpc.GetUnclesInBlock(block.Uncles, block.Number)
 	}
 
 	// calculate rewards
@@ -96,15 +105,18 @@ func (c *Crawler) Sync(block *models.Block, syncUtility Sync) {
 	var supply = new(big.Int)
 	supply.Add(pSupply, minted)
 
-	block = &models.Block{
-		Number:       block.Number,
-		Hash:         block.Hash,
-		Timestamp:    block.Timestamp,
-		BlockReward:  blockReward.String(),
-		UncleRewards: uncleRewards.String(),
-		Minted:       minted.String(),
-		Supply:       supply.String(),
+	if len(block.Transactions) > 0 {
+		avgGasPrice, txFees, tokentransfers = c.processTransactions(block.Transactions, block.Timestamp)
 	}
+
+	minted.Add(blockReward, uncleRewards)
+
+	block.AvgGasPrice = avgGasPrice.String()
+	block.TxFees = txFees.String()
+	block.BlockReward = blockReward.String()
+	block.UncleRewards = uncleRewards.String()
+	block.Minted = minted.String()
+	block.Supply = supply.String()
 
 	// write block to db
 	err = c.backend.AddBlock(block)
@@ -113,49 +125,11 @@ func (c *Crawler) Sync(block *models.Block, syncUtility Sync) {
 	}
 
 	// add required block info to cache for next iteration
-	c.sbCache.Add(block.Number, blockCache{Supply: supply, Hash: block.Hash})
+	c.blockCache.Add(block.Number, blockCache{Supply: supply, Hash: block.Hash})
 
-	syncUtility.log(block.Number, minted, supply)
+	syncUtility.log(block.Number, block.Txs, tokentransfers, block.UncleNo, minted, supply)
 	syncUtility.send(block.Number + 1)
 	syncUtility.done()
-}
-
-func (c *Crawler) getPreviousBlock(blockNumber uint64) (blockCache, error) {
-
-	// get parent block info from cache
-
-	if cached, ok := c.sbCache.Get(blockNumber - 1); ok {
-		return cached.(blockCache), nil
-	} else {
-		// parent block not cached, fetch from db
-		log.Warnf("block %v not found in cache, retrieving from database", blockNumber-1)
-		latestBlock, err := c.backend.BlockByNumber(blockNumber - 1)
-		if err != nil {
-			return blockCache{}, err
-		}
-		sprev, _ := new(big.Int).SetString(latestBlock.Supply, 10)
-		return blockCache{sprev, latestBlock.Hash}, nil
-	}
-}
-
-func (c *Crawler) handleReorg(b *models.Block, syncUtility Sync) {
-
-	// a reorg has occured
-	log.Warnf("Reorg detected at block %v", b.Number-1)
-
-	// clear cache
-	log.Warnf("Purging block cache.")
-	c.sbCache.Purge()
-
-	// sync forked Block and remove parent Block from db
-	c.syncForkedBlock(b, syncUtility)
-
-	log.Warnf("Forked block %v synced and removed from blocks collection.", b.Number-1)
-
-	// update state
-	c.state.reorg = true
-	c.state.syncing = false
-	syncUtility.close(b.Number)
 }
 
 func (c *Crawler) syncForkedBlock(b *models.Block, syncUtility Sync) {
@@ -181,17 +155,126 @@ func (c *Crawler) syncForkedBlock(b *models.Block, syncUtility Sync) {
 	log.Warnf("FORKED - %v %v", dbBlock.Number, dbBlock.Hash)
 }
 
-func (c *Crawler) GetUncles(uncles []string, height uint64) []*models.Uncle {
+func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uint64) (*big.Int, *big.Int, int) {
 
-	var u []*models.Uncle
+	var twg sync.WaitGroup
 
-	for k := range uncles {
-		uncle, err := c.rpc.GetUncleByBlockNumberAndIndex(height, k)
-		if err != nil {
-			log.Errorf("Error getting uncle: %v", err)
-			return u
-		}
-		u = append(u, uncle)
+	data := &data{
+		avgGasPrice:    big.NewInt(0),
+		txFees:         big.NewInt(0),
+		tokentransfers: 0,
 	}
-	return u
+
+	twg.Add(len(txs))
+
+	for _, v := range txs {
+		go c.processTransaction(v, timestamp, data, &twg)
+	}
+	twg.Wait()
+	return data.avgGasPrice.Div(data.avgGasPrice, big.NewInt(int64(len(txs)))), data.txFees, data.tokentransfers
+}
+
+func (c *Crawler) processTransaction(rt models.RawTransaction, timestamp uint64, data *data, twg *sync.WaitGroup) {
+
+	v := rt.Convert()
+
+	// Create a channel
+
+	ch := make(chan struct{}, 1)
+
+	receipt, err := c.rpc.GetTxReceipt(v.Hash)
+	if err != nil {
+		log.Errorf("Error getting tx receipt: %v", err)
+	}
+
+	//TODO: is this really an average?
+	data.Lock()
+	data.avgGasPrice.Add(data.avgGasPrice, big.NewInt(0).SetUint64(v.GasPrice))
+	data.Unlock()
+
+	gasprice := big.NewInt(0).SetUint64(v.GasPrice)
+
+	data.Lock()
+	data.txFees.Add(data.txFees, big.NewInt(0).Mul(gasprice, big.NewInt(0).SetUint64(receipt.GasUsed)))
+	data.Unlock()
+
+	v.Timestamp = timestamp
+	v.GasUsed = receipt.GasUsed
+	v.ContractAddress = receipt.ContractAddress
+	v.Logs = receipt.Logs
+
+	if v.IsTokenTransfer() {
+		// Here we fork to a goroutine to process and insert the token transfer.
+		// We use the channel to block the function util the token transfer is inserted.
+		data.Lock()
+		data.tokentransfers++
+		data.Unlock()
+		go c.processTokenTransfer(v, ch)
+	}
+
+	err = c.backend.AddTransaction(v)
+	if err != nil {
+		log.Errorf("Error inserting tx into backend: %#v", err)
+
+	}
+
+	if v.IsTokenTransfer() {
+		<-ch
+	}
+	twg.Done()
+}
+
+func (c *Crawler) processTokenTransfer(v *models.Transaction, ch chan struct{}) {
+
+	tktx := v.GetTokenTransfer()
+
+	tktx.BlockNumber = v.BlockNumber
+	tktx.Hash = v.Hash
+	tktx.Timestamp = v.Timestamp
+
+	err := c.backend.AddTokenTransfer(tktx)
+	if err != nil {
+		log.Errorf("Error processing token transfer into backend: %v", err)
+	}
+
+	ch <- struct{}{}
+
+}
+
+func (c *Crawler) getPreviousBlock(blockNumber uint64) (blockCache, error) {
+
+	// get parent block info from cache
+
+	if cached, ok := c.blockCache.Get(blockNumber - 1); ok {
+		return cached.(blockCache), nil
+	} else {
+		// parent block not cached, fetch from db
+		log.Warnf("block %v not found in cache, retrieving from database", blockNumber-1)
+		latestBlock, err := c.backend.BlockByNumber(blockNumber - 1)
+		if err != nil {
+			return blockCache{}, err
+		}
+		sprev, _ := new(big.Int).SetString(latestBlock.Supply, 10)
+		return blockCache{sprev, latestBlock.Hash}, nil
+	}
+}
+
+func (c *Crawler) handleReorg(b *models.Block, syncUtility Sync) {
+
+	// a reorg has occured
+	log.Warnf("Reorg detected at block %v", b.Number-1)
+
+	// clear cache
+	log.Warnf("Purging block cache.")
+	c.blockCache.Purge()
+
+	// sync forked Block and remove parent Block from db
+	c.syncForkedBlock(b, syncUtility)
+
+	log.Warnf("Forked block %v synced and removed from blocks collection.", b.Number-1)
+
+	// update state
+	c.state.reorg = true
+	c.state.syncing = false
+	syncUtility.close(b.Number)
 }

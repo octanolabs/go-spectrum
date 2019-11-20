@@ -144,6 +144,21 @@ func (r *RPCClient) GetUncleByBlockNumberAndIndex(height uint64, index int) (*mo
 	return r.getUncleBy("eth_getUncleByBlockNumberAndIndex", params)
 }
 
+func (r *RPCClient) GetUnclesInBlock(uncles []string, height uint64) []*models.Uncle {
+
+	var u []*models.Uncle
+
+	for k := range uncles {
+		uncle, err := r.GetUncleByBlockNumberAndIndex(height, k)
+		if err != nil {
+			log.Errorf("Error getting uncle: %v", err)
+			return u
+		}
+		u = append(u, uncle)
+	}
+	return u
+}
+
 func (r *RPCClient) LatestBlockNumber() (uint64, error) {
 	rpcResp, err := r.doPost("eth_blockNumber", []interface{}{})
 

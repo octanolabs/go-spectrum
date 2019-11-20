@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	sbCacheLimit = 10
+	blockCacheLimit = 10
 )
 
 type blockCache struct {
@@ -29,10 +29,12 @@ type Config struct {
 
 type RPCClient interface {
 	GetLatestBlock() (*models.Block, error)
-	GetBlockByHeight(height uint64) (*models.Block, error)
-	GetBlockByHash(hash string) (*models.Block, error)
-	GetUncleByBlockNumberAndIndex(height uint64, index int) (*models.Uncle, error)
+	GetBlockByHeight(uint64) (*models.Block, error)
+	GetBlockByHash(string) (*models.Block, error)
+	GetUncleByBlockNumberAndIndex(uint64, int) (*models.Uncle, error)
 	LatestBlockNumber() (uint64, error)
+	GetTxReceipt(string) (*models.TxReceipt, error)
+	GetUnclesInBlock([]string, uint64) []*models.Uncle
 	Ping() error
 }
 
@@ -59,9 +61,6 @@ type Database interface {
 	AddForkedBlock(b *models.Block) error
 }
 
-//TODO: crawler:
-// add back explorer code
-
 type Crawler struct {
 	backend Database
 	rpc     RPCClient
@@ -70,35 +69,12 @@ type Crawler struct {
 		syncing bool
 		reorg   bool
 	}
-	sbCache *lru.Cache // Cache for the most recent blocks
+	blockCache *lru.Cache // Cache for the most recent blocks
 }
-
-type logObject struct {
-	blockNo uint64
-	blocks  int
-	minted  *big.Int
-	supply  *big.Int
-}
-
-func (l *logObject) add(o *logObject) {
-	l.blockNo = o.blockNo
-	l.blocks++
-	l.minted.Add(l.minted, o.minted)
-	l.supply = o.supply
-}
-
-func (l *logObject) clear() {
-	l.blockNo = 0
-	l.blocks = 0
-	l.minted = new(big.Int)
-	l.supply = new(big.Int)
-}
-
-var client = &http.Client{Timeout: 60 * time.Second}
 
 func New(db Database, rpc RPCClient, cfg *Config) *Crawler {
-	sbc, _ := lru.New(sbCacheLimit)
-	return &Crawler{db, rpc, cfg, struct{ syncing, reorg bool }{false, false}, sbc}
+	bc, _ := lru.New(blockCacheLimit)
+	return &Crawler{db, rpc, cfg, struct{ syncing, reorg bool }{false, false}, bc}
 }
 
 func (c *Crawler) Start() {

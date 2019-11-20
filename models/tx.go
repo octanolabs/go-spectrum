@@ -104,7 +104,8 @@ func (tx *Transaction) GetTokenTransfer() *TokenTransfer {
 			tx.Input[10:74], tx.Input[74:138], tx.Input[138:],
 		}
 	} else {
-		log.Errorf("Error processing toxen transfers: input length is not standard: len: %v", len(tx.Input))
+		log.Errorf("Error processing token transfer: input length is not standard: len: %v", len(tx.Input))
+		return nil
 	}
 
 	switch method {

@@ -20,8 +20,8 @@ func (s *Sync) close(current uint64) {
 closer:
 	for {
 		select {
-		case close := <-s.c1:
-			if close == current {
+		case c := <-s.c1:
+			if c == current {
 				break closer
 			}
 		}
@@ -32,11 +32,14 @@ closer:
 
 }
 
-func (s *Sync) log(blockNo uint64, minted *big.Int, supply *big.Int) {
+func (s *Sync) log(blockNo uint64, txns, transfers, uncles int, minted *big.Int, supply *big.Int) {
 	s.logChan <- &logObject{
-		blockNo: blockNo,
-		minted:  minted,
-		supply:  supply,
+		blockNo:        blockNo,
+		txns:           txns,
+		tokentransfers: transfers,
+		uncleNo:        uncles,
+		minted:         minted,
+		supply:         supply,
 	}
 }
 
@@ -90,6 +93,9 @@ func NewSync() Sync {
 		stats := &logObject{
 			0,
 			0,
+			0,
+			0,
+			0,
 			new(big.Int),
 			new(big.Int),
 		}
@@ -100,11 +106,14 @@ func NewSync() Sync {
 				if !ok {
 					if stats.blocks > 0 {
 						log.WithFields(log.Fields{
-							"blocks": stats.blocks,
-							"head":   stats.blockNo,
-							"minted": stats.minted,
-							"supply": stats.supply,
-							"t":      time.Since(start),
+							"blocks":       stats.blocks,
+							"head":         stats.blockNo,
+							"transactions": stats.txns,
+							"transfers":    stats.tokentransfers,
+							"uncles":       stats.uncleNo,
+							"minted":       stats.minted,
+							"supply":       stats.supply,
+							"t":            time.Since(start),
 						}).Info("Imported new chain segment")
 					}
 					break logloop
@@ -127,12 +136,12 @@ func NewSync() Sync {
 		}
 	}(logchan)
 
-	sync := Sync{
+	s := Sync{
 		c1:      make(chan uint64, 1),
 		c2:      make(chan uint64, 1),
 		wg:      wg,
 		logChan: logchan,
 	}
 
-	return sync
+	return s
 }
