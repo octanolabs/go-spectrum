@@ -2,7 +2,6 @@ package crawler
 
 import (
 	"math/big"
-	"net/http"
 	"net/url"
 	"os"
 	"time"
