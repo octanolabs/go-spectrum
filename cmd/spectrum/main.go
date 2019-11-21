@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/octanolabs/go-spectrum/api"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -25,7 +26,7 @@ func init() {
 	if v {
 		log.SetFormatter(&log.TextFormatter{FullTimestamp: true, TimestampFormat: time.StampNano})
 		log.SetLevel(log.DebugLevel)
-		log.SetReportCaller(true)
+		//log.SetReportCaller(true)
 	} else {
 		log.SetFormatter(&log.TextFormatter{FullTimestamp: true, TimestampFormat: time.Stamp})
 		log.SetLevel(log.InfoLevel)
@@ -72,7 +73,11 @@ func main() {
 		log.Println("Running with 1 thread")
 	}
 
+	log.Debugf("Connecting to mongo at %v", cfg.Mongo.ConnectionString())
+
 	mongo, err := storage.NewConnection(&cfg.Mongo) // TODO - iquidus: fix this check
+
+	log.Debugf("Connecting to mongo at %v", cfg.Mongo.ConnectionString())
 
 	if err != nil {
 		log.Fatalf("Can't establish connection to mongo: %v", err)
@@ -83,14 +88,23 @@ func main() {
 	err = mongo.Ping()
 
 	if err != nil {
-		log.Printf("Can't establish connection to mongo: %v", err)
+		log.Fatalf("Can't establish connection to mongo: %v", err)
 	} else {
-		log.Println("PING")
+		log.Println("PONG")
 	}
 
 	rpc := rpc.NewRPCClient(&cfg.Rpc)
 
-	go startCrawler(mongo, rpc, &cfg.Crawler)
+	if cfg.Crawler.Enabled {
+		go startCrawler(mongo, rpc, &cfg.Crawler)
+	} else if cfg.Api.Enabled {
+		if cfg.Api.V3 {
+			api.NewV3ServerStart(mongo, &cfg.Api)
+		} else {
+			server := api.New(mongo, &cfg.Api)
+			server.Start()
+		}
+	}
 
 	quit := make(chan bool)
 	<-quit

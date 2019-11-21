@@ -18,6 +18,7 @@ import (
 
 type Config struct {
 	Enabled bool   `json:"enabled"`
+	V3      bool   `json:"v3"`
 	Port    string `json:"port"`
 	Nodemap struct {
 		Enabled bool   `json:"enabled"`

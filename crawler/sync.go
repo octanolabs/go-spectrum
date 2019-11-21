@@ -122,11 +122,14 @@ func NewSync() Sync {
 
 				if stats.blocks >= 1000 || time.Now().After(start.Add(time.Minute)) {
 					log.WithFields(log.Fields{
-						"blocks": stats.blocks,
-						"head":   stats.blockNo,
-						"minted": stats.minted,
-						"supply": stats.supply,
-						"t":      time.Since(start),
+						"blocks":       stats.blocks,
+						"head":         stats.blockNo,
+						"transactions": stats.txns,
+						"transfers":    stats.tokentransfers,
+						"uncles":       stats.uncleNo,
+						"minted":       stats.minted,
+						"supply":       stats.supply,
+						"t":            time.Since(start),
 					}).Info("Imported new chain segment")
 
 					stats.clear()

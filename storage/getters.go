@@ -21,16 +21,16 @@ func (m *MongoDB) ChainStore(symbol string) (models.Store, error) {
 
 // Getters
 
-func (m *MongoDB) BlockByNumber(number uint64) (*models.Block, error) {
-	var block *models.Block
+func (m *MongoDB) BlockByNumber(number uint64) (models.Block, error) {
+	var block models.Block
 
 	err := m.C(models.BLOCKS).FindOne(context.Background(), bson.M{"number": number}, options.FindOne()).Decode(&block)
 
 	return block, err
 }
 
-func (m *MongoDB) BlockByHash(hash string) (*models.Block, error) {
-	var block *models.Block
+func (m *MongoDB) BlockByHash(hash string) (models.Block, error) {
+	var block models.Block
 
 	err := m.C(models.BLOCKS).FindOne(context.Background(), bson.M{"hash": hash}, options.FindOne()).Decode(&block)
 	return block, err
@@ -39,14 +39,14 @@ func (m *MongoDB) BlockByHash(hash string) (*models.Block, error) {
 func (m *MongoDB) LatestBlock() (models.Block, error) {
 	var block models.Block
 
-	err := m.C(models.BLOCKS).FindOne(context.Background(), bson.M{}, options.FindOne().SetSort("-number")).Decode(&block)
+	err := m.C(models.BLOCKS).FindOne(context.Background(), bson.M{}, options.FindOne().SetSort(bson.D{{"number", -1}})).Decode(&block)
 	return block, err
 }
 
 func (m *MongoDB) LatestBlocks(limit int) ([]models.Block, error) {
 	var blocks []models.Block
 
-	c, err := m.C(models.BLOCKS).Find(context.Background(), bson.M{}, options.Find().SetSort("-number").SetLimit(50))
+	c, err := m.C(models.BLOCKS).Find(context.Background(), bson.M{}, options.Find().SetSort(bson.D{{"number", -1}}).SetLimit(50))
 
 	if err != nil {
 		return blocks, err
@@ -75,7 +75,7 @@ func (m *MongoDB) UncleByHash(hash string) (models.Uncle, error) {
 func (m *MongoDB) LatestUncles(limit int64) ([]models.Uncle, error) {
 	var uncles []models.Uncle
 
-	c, err := m.C(models.UNCLES).Find(context.Background(), bson.M{}, options.Find().SetSort("-blockNumber").SetLimit(limit))
+	c, err := m.C(models.UNCLES).Find(context.Background(), bson.M{}, options.Find().SetSort(bson.D{{"blockNumber", -1}}).SetLimit(limit))
 
 	if err != nil {
 		return uncles, err
@@ -104,7 +104,7 @@ func (m *MongoDB) ForkedBlockByNumber(number uint64) (models.Block, error) {
 func (m *MongoDB) LatestForkedBlocks(limit int64) ([]models.Block, error) {
 	var blocks []models.Block
 
-	c, err := m.C(models.REORGS).Find(context.Background(), bson.M{}, options.Find().SetSort("-number").SetLimit(limit))
+	c, err := m.C(models.REORGS).Find(context.Background(), bson.M{}, options.Find().SetSort(bson.D{{"number", -1}}).SetLimit(limit))
 
 	if err != nil {
 		return blocks, err
@@ -148,7 +148,7 @@ func (m *MongoDB) TransactionByContractAddress(hash string) (models.Transaction,
 func (m *MongoDB) LatestTransactions(limit int64) ([]models.Transaction, error) {
 	var txns []models.Transaction
 
-	c, err := m.C(models.TXNS).Find(context.Background(), bson.M{}, options.Find().SetSort("-blockNumber").SetLimit(limit))
+	c, err := m.C(models.TXNS).Find(context.Background(), bson.M{}, options.Find().SetSort(bson.D{{"blockNumber", -1}}).SetLimit(limit))
 
 	if err != nil {
 		return txns, err
@@ -162,7 +162,7 @@ func (m *MongoDB) LatestTransactions(limit int64) ([]models.Transaction, error) 
 func (m *MongoDB) LatestTransactionsByAccount(hash string) ([]models.Transaction, error) {
 	var txns []models.Transaction
 
-	c, err := m.C(models.TXNS).Find(context.Background(), bson.M{"$or": []bson.M{{"from": hash}, {"to": hash}}}, options.Find().SetSort("-blockNumber").SetLimit(100))
+	c, err := m.C(models.TXNS).Find(context.Background(), bson.M{"$or": []bson.M{{"from": hash}, {"to": hash}}}, options.Find().SetSort(bson.D{{"blockNumber", -1}}).SetLimit(100))
 
 	if err != nil {
 		return txns, err
@@ -188,7 +188,7 @@ func (m *MongoDB) TotalTxnCount() (int64, error) {
 func (m *MongoDB) TokenTransfersByAccount(token string, account string) ([]models.TokenTransfer, error) {
 	var transfers []models.TokenTransfer
 
-	c, err := m.C(models.TRANSFERS).Find(context.Background(), bson.M{"$or": []bson.M{{"$and": []bson.M{{"from": account}, {"contract": token}}}, {"$and": []bson.M{{"to": account}, {"contract": token}}}}}, options.Find().SetSort("-blockNumber"))
+	c, err := m.C(models.TRANSFERS).Find(context.Background(), bson.M{"$or": []bson.M{{"$and": []bson.M{{"from": account}, {"contract": token}}}, {"$and": []bson.M{{"to": account}, {"contract": token}}}}}, options.Find().SetSort(bson.D{{"blockNumber", -1}}))
 
 	if err != nil {
 		return transfers, err
@@ -207,7 +207,7 @@ func (m *MongoDB) TokenTransfersByAccountCount(token string, account string) (in
 func (m *MongoDB) LatestTokenTransfersByAccount(hash string) ([]models.TokenTransfer, error) {
 	var transfers []models.TokenTransfer
 
-	c, err := m.C(models.TRANSFERS).Find(context.Background(), bson.M{"$or": []bson.M{{"from": hash}, {"to": hash}}}, options.Find().SetSort("-blockNumber").SetLimit(100))
+	c, err := m.C(models.TRANSFERS).Find(context.Background(), bson.M{"$or": []bson.M{{"from": hash}, {"to": hash}}}, options.Find().SetSort(bson.D{{"blockNumber", -1}}).SetLimit(100))
 
 	if err != nil {
 		return transfers, err
@@ -221,7 +221,7 @@ func (m *MongoDB) LatestTokenTransfersByAccount(hash string) ([]models.TokenTran
 func (m *MongoDB) LatestTransfersOfToken(hash string) ([]models.TokenTransfer, error) {
 	var transfers []models.TokenTransfer
 
-	c, err := m.C(models.TRANSFERS).Find(context.Background(), bson.M{"contract": hash}, options.Find().SetSort("-blockNumber").SetLimit(1000))
+	c, err := m.C(models.TRANSFERS).Find(context.Background(), bson.M{"contract": hash}, options.Find().SetSort(bson.D{{"blockNumber", -1}}).SetLimit(1000))
 
 	if err != nil {
 		return transfers, err
@@ -246,7 +246,7 @@ func (m *MongoDB) TokenTransferCountByContract(hash string) (int64, error) {
 func (m *MongoDB) LatestTokenTransfers(limit int64) ([]models.TokenTransfer, error) {
 	var transfers []models.TokenTransfer
 
-	c, err := m.C(models.TRANSFERS).Find(context.Background(), bson.M{}, options.Find().SetSort("-blockNumber").SetLimit(limit))
+	c, err := m.C(models.TRANSFERS).Find(context.Background(), bson.M{}, options.Find().SetSort(bson.D{{"blockNumber", -1}}).SetLimit(limit))
 
 	if err != nil {
 		return transfers, err

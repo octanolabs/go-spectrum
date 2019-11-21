@@ -6,9 +6,15 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 )
+
+func MakeTimestamp() int64 {
+
+	return time.Now().UnixNano() / int64(time.Millisecond)
+}
 
 func GetJson(client *http.Client, url string, target interface{}) error {
 	r, err := client.Get(url)

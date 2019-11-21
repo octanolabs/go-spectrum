@@ -1,15 +1,15 @@
 package crawler
 
 import (
+	"github.com/octanolabs/go-spectrum/storage"
 	"math/big"
 	"net/url"
 	"os"
 	"time"
 
-	log "github.com/sirupsen/logrus"
-
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/octanolabs/go-spectrum/models"
+	"github.com/octanolabs/go-spectrum/rpc"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -22,47 +22,14 @@ type blockCache struct {
 }
 
 type Config struct {
+	Enabled     bool   `json:"enabled"`
 	Interval    string `json:"interval"`
 	MaxRoutines int    `json:"routines"`
 }
 
-type RPCClient interface {
-	GetLatestBlock() (*models.Block, error)
-	GetBlockByHeight(uint64) (*models.Block, error)
-	GetBlockByHash(string) (*models.Block, error)
-	GetUncleByBlockNumberAndIndex(uint64, int) (*models.Uncle, error)
-	LatestBlockNumber() (uint64, error)
-	GetTxReceipt(string) (*models.TxReceipt, error)
-	GetUnclesInBlock([]string, uint64) []*models.Uncle
-	Ping() error
-}
-
-type Database interface {
-	// Init
-	Init()
-
-	// storage
-	IsFirstRun() bool
-	ChainStore(symbol string) (models.Store, error)
-	Ping() error
-
-	// getters
-
-	LatestBlock() (models.Block, error)
-	BlockByNumber(height uint64) (*models.Block, error)
-	PurgeBlock(height uint64) error
-
-	// setters
-	AddTransaction(tx *models.Transaction) error
-	AddTokenTransfer(tt *models.TokenTransfer) error
-	AddUncle(u *models.Uncle) error
-	AddBlock(b *models.Block) error
-	AddForkedBlock(b *models.Block) error
-}
-
 type Crawler struct {
-	backend Database
-	rpc     RPCClient
+	backend *storage.MongoDB
+	rpc     *rpc.RPCClient
 	cfg     *Config
 	state   struct {
 		syncing bool
@@ -71,7 +38,7 @@ type Crawler struct {
 	blockCache *lru.Cache // Cache for the most recent blocks
 }
 
-func New(db Database, rpc RPCClient, cfg *Config) *Crawler {
+func New(db *storage.MongoDB, rpc *rpc.RPCClient, cfg *Config) *Crawler {
 	bc, _ := lru.New(blockCacheLimit)
 	return &Crawler{db, rpc, cfg, struct{ syncing, reorg bool }{false, false}, bc}
 }

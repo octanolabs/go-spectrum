@@ -13,17 +13,19 @@ import (
 )
 
 type Config struct {
+	Symbol   string `json:"symbol"`
 	User     string `json:"user"`
 	Password string `json:"password"`
 	Database string `json:"database"`
 	Address  string `json:"address"`
 }
 
-func (c *Config) connectionString() string {
-	return fmt.Sprint("mongodb://", c.User, ":", c.Password, "@", c.Address)
+func (c *Config) ConnectionString() string {
+	return fmt.Sprint("mongodb://", c.User, ":", c.Password, "@", c.Address, "/", c.Database)
 }
 
 type MongoDB struct {
+	symbol string
 	client *mongo.Client
 	db     *mongo.Database
 }
@@ -36,7 +38,7 @@ type MongoDB struct {
 
 func NewConnection(cfg *Config) (*MongoDB, error) {
 
-	client, err := mongo.NewClient(options.Client().ApplyURI(cfg.connectionString()))
+	client, err := mongo.NewClient(options.Client().ApplyURI(cfg.ConnectionString()))
 	if err != nil {
 		log.Fatalf("Error creating mongo client: %v", err)
 		log.Debugf("Unwrapped: %v", errors.Unwrap(err))
@@ -52,7 +54,7 @@ func NewConnection(cfg *Config) (*MongoDB, error) {
 		log.Debugf("Unwrapped: %v", errors.Unwrap(err))
 	}
 
-	return &MongoDB{client, client.Database(cfg.Database, options.Database())}, nil
+	return &MongoDB{cfg.Symbol, client, client.Database(cfg.Database, options.Database())}, nil
 }
 
 func (m *MongoDB) C(coll string) *mongo.Collection {
@@ -61,10 +63,12 @@ func (m *MongoDB) C(coll string) *mongo.Collection {
 
 func (m *MongoDB) IsFirstRun() bool {
 
-	err := m.C(models.STORE).FindOne(context.Background(), bson.D{}, options.FindOne()).Err()
+	err := m.C(models.STORE).FindOne(context.Background(), bson.M{}, options.FindOne()).Err()
+
+	log.Debugf("err: %#v", err)
 
 	if err != nil {
-		if err.Error() == "not found" {
+		if err == mongo.ErrNoDocuments {
 			return true
 		} else {
 			log.Fatalf("Error during initialization: %v", err)

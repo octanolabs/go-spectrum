@@ -21,13 +21,15 @@ func (c *Crawler) SyncLoop() {
 	// get db head
 	indexHead, err := c.backend.LatestBlock()
 	if err != nil {
-		log.Errorf("Error getting latest supply block: %v", err)
+		log.Fatalf("Error getting latest block: %v", err)
 	}
+
+	log.Debugf("Db block: %+v", indexHead)
 
 	// get node head
 	chainHead, err := c.rpc.LatestBlockNumber()
 	if err != nil {
-		log.Errorf("Error getting latest block number: %v", err)
+		log.Errorf("Error getting block number: %v", err)
 	}
 
 	syncUtility := NewSync()
@@ -46,17 +48,19 @@ mainloop:
 			break mainloop
 		}
 
-		if c.state.reorg == true {
-			// reorg has occured, reset mainloop
-			syncUtility.close(currentBlock)
-			c.state.reorg = false
-			c.state.syncing = false
-
-		}
+		log.Debugf("Rpc fetched block %+v", block)
 
 		syncUtility.add(1)
 
 		go c.Sync(block, syncUtility)
+
+		if c.state.reorg {
+			// reorg has occured, reset mainloop
+			syncUtility.close(currentBlock)
+			c.state.reorg = false
+			c.state.syncing = false
+			break mainloop
+		}
 
 		syncUtility.wait(c.cfg.MaxRoutines)
 		syncUtility.swapChannels()
@@ -68,8 +72,6 @@ mainloop:
 
 func (c *Crawler) Sync(block *models.Block, syncUtility Sync) {
 	syncUtility.recieve()
-
-	// TODO: finish refactoring
 
 	var (
 		uncles              []*models.Uncle
@@ -130,6 +132,10 @@ func (c *Crawler) Sync(block *models.Block, syncUtility Sync) {
 	syncUtility.log(block.Number, block.Txs, tokentransfers, block.UncleNo, minted, supply)
 	syncUtility.send(block.Number + 1)
 	syncUtility.done()
+
+	if c.state.reorg {
+		return
+	}
 }
 
 func (c *Crawler) syncForkedBlock(b *models.Block, syncUtility Sync) {
@@ -141,9 +147,9 @@ func (c *Crawler) syncForkedBlock(b *models.Block, syncUtility Sync) {
 		log.Errorf("Error getting forked block: %v", err)
 	}
 
-	err = c.backend.AddForkedBlock(dbBlock)
+	err = c.backend.AddForkedBlock(&dbBlock)
 	if err != nil {
-		log.Errorf("Error getting reorg'd block: %v", err)
+		log.Errorf("Error adding reorg'd block: %v", err)
 	}
 
 	err = c.backend.PurgeBlock(reorgHeight)
@@ -245,12 +251,14 @@ func (c *Crawler) getPreviousBlock(blockNumber uint64) (blockCache, error) {
 
 	// get parent block info from cache
 
-	if cached, ok := c.blockCache.Get(blockNumber - 1); ok {
+	b := blockNumber - 1
+
+	if cached, ok := c.blockCache.Get(b); ok {
 		return cached.(blockCache), nil
 	} else {
 		// parent block not cached, fetch from db
-		log.Warnf("block %v not found in cache, retrieving from database", blockNumber-1)
-		latestBlock, err := c.backend.BlockByNumber(blockNumber - 1)
+		log.Warnf("block %v not found in cache, retrieving from database", b)
+		latestBlock, err := c.backend.BlockByNumber(b)
 		if err != nil {
 			return blockCache{}, err
 		}
@@ -275,6 +283,5 @@ func (c *Crawler) handleReorg(b *models.Block, syncUtility Sync) {
 
 	// update state
 	c.state.reorg = true
-	c.state.syncing = false
 	syncUtility.close(b.Number)
 }
