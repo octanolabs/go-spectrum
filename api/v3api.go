@@ -40,24 +40,16 @@ func NewV3ServerStart(backend V3api, cfg *Config) {
 
 	server := rpc.NewServer()
 
-	err := server.RegisterName("spectrum", backend)
+	err := server.RegisterName("explorer", backend)
 
 	if err != nil {
-		log.Fatal("Error registering service spectrum: %v", err)
+		log.Errorf("Error: couldn't register service: %v", err)
 	}
 
-	conn, err := net.Dial("tcp", ":8181")
+	err = http.ListenAndServe(net.JoinHostPort("0.0.0.0", cfg.Port), server)
 
 	if err != nil {
-		log.Fatal("Error creating conn: %v", err)
-	}
-
-	codec := rpc.NewJSONCodec(conn)
-
-	server.ServeCodec(codec, rpc.OptionMethodInvocation)
-
-	if err := http.ListenAndServe("0.0.0.0:"+cfg.Port, server); err != nil {
-		log.Fatal(err)
+		log.Errorf("Error: Couldn't serve rpc: %v", err)
 	}
 
 }
