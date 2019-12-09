@@ -46,7 +46,7 @@ func (l *logObject) clear() {
 // The total reward consists of the static block reward and rewards for
 // included uncles. The total rewards of each uncle block is also returned.
 // based on accumulateRewards from gubiq 2.2.0
-func AccumulateRewards(block *models.Block, uncles []*models.Uncle) (*big.Int, *big.Int, *big.Int) {
+func AccumulateRewards(block *models.Block, uncles []models.Uncle) (*big.Int, *big.Int, *big.Int) {
 	reward := new(big.Int).Set(blockReward)
 	blocknum := new(big.Int).SetUint64(block.Number)
 

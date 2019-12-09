@@ -7,6 +7,7 @@ require (
 	github.com/aristanetworks/goarista v0.0.0-20191106175434-873d404c7f40 // indirect
 	github.com/btcsuite/btcd v0.20.1-beta // indirect
 	github.com/deckarep/golang-set v1.7.1 // indirect
+	github.com/gin-gonic/gin v1.5.0
 	github.com/globalsign/mgo v0.0.0-20181015135952-eeefdecb41b8 // indirect
 	github.com/google/go-cmp v0.3.1 // indirect
 	github.com/gorilla/mux v1.7.2

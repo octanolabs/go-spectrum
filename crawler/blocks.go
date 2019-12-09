@@ -70,14 +70,14 @@ mainloop:
 	c.state.syncing = false
 }
 
-func (c *Crawler) Sync(block *models.Block, syncUtility Sync) {
+func (c *Crawler) Sync(block models.Block, syncUtility Sync) {
 	syncUtility.recieve()
 
 	var (
-		uncles              []*models.Uncle
+		uncles              = make([]models.Uncle, 0)
+		avgGasPrice, txFees = new(big.Int), new(big.Int)
 		pSupply             = new(big.Int)
 		pHash               string
-		avgGasPrice, txFees *big.Int
 		tokentransfers      int
 	)
 
@@ -101,7 +101,7 @@ func (c *Crawler) Sync(block *models.Block, syncUtility Sync) {
 	}
 
 	// calculate rewards
-	blockReward, uncleRewards, minted := AccumulateRewards(block, uncles)
+	blockReward, uncleRewards, minted := AccumulateRewards(&block, uncles)
 
 	// add minted to supply
 	var supply = new(big.Int)
@@ -121,7 +121,7 @@ func (c *Crawler) Sync(block *models.Block, syncUtility Sync) {
 	block.Supply = supply.String()
 
 	// write block to db
-	err = c.backend.AddBlock(block)
+	err = c.backend.AddBlock(&block)
 	if err != nil {
 		log.Errorf("Error adding block: %v", err)
 	}
@@ -138,7 +138,7 @@ func (c *Crawler) Sync(block *models.Block, syncUtility Sync) {
 	}
 }
 
-func (c *Crawler) syncForkedBlock(b *models.Block, syncUtility Sync) {
+func (c *Crawler) syncForkedBlock(b models.Block) {
 
 	reorgHeight := b.Number - 1
 
@@ -218,7 +218,7 @@ func (c *Crawler) processTransaction(rt models.RawTransaction, timestamp uint64,
 		go c.processTokenTransfer(v, ch)
 	}
 
-	err = c.backend.AddTransaction(v)
+	err = c.backend.AddTransaction(&v)
 	if err != nil {
 		log.Errorf("Error inserting tx into backend: %#v", err)
 
@@ -230,7 +230,7 @@ func (c *Crawler) processTransaction(rt models.RawTransaction, timestamp uint64,
 	twg.Done()
 }
 
-func (c *Crawler) processTokenTransfer(v *models.Transaction, ch chan struct{}) {
+func (c *Crawler) processTokenTransfer(v models.Transaction, ch chan struct{}) {
 
 	tktx := v.GetTokenTransfer()
 
@@ -238,7 +238,7 @@ func (c *Crawler) processTokenTransfer(v *models.Transaction, ch chan struct{}) 
 	tktx.Hash = v.Hash
 	tktx.Timestamp = v.Timestamp
 
-	err := c.backend.AddTokenTransfer(tktx)
+	err := c.backend.AddTokenTransfer(&tktx)
 	if err != nil {
 		log.Errorf("Error processing token transfer into backend: %v", err)
 	}
@@ -267,7 +267,7 @@ func (c *Crawler) getPreviousBlock(blockNumber uint64) (blockCache, error) {
 	}
 }
 
-func (c *Crawler) handleReorg(b *models.Block, syncUtility Sync) {
+func (c *Crawler) handleReorg(b models.Block, syncUtility Sync) {
 
 	// a reorg has occured
 	log.Warnf("Reorg detected at block %v", b.Number-1)
@@ -277,7 +277,7 @@ func (c *Crawler) handleReorg(b *models.Block, syncUtility Sync) {
 	c.blockCache.Purge()
 
 	// sync forked Block and remove parent Block from db
-	c.syncForkedBlock(b, syncUtility)
+	c.syncForkedBlock(b)
 
 	log.Warnf("Forked block %v synced and removed from blocks collection.", b.Number-1)
 

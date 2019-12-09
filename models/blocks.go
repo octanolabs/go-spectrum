@@ -38,8 +38,8 @@ type RawBlock struct {
 	ExtraData string `bson:"extraData" json:"extraData"`
 }
 
-func (b *RawBlock) Convert() *Block {
-	return &Block{
+func (b *RawBlock) Convert() Block {
+	return Block{
 		Number:          util.DecodeHex(b.Number),
 		Timestamp:       util.DecodeHex(b.Timestamp),
 		Transactions:    b.Transactions,

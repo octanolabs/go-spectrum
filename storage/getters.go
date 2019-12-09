@@ -204,10 +204,10 @@ func (m *MongoDB) TokenTransfersByAccountCount(token string, account string) (in
 	return count, err
 }
 
-func (m *MongoDB) LatestTokenTransfersByAccount(hash string) ([]models.TokenTransfer, error) {
+func (m *MongoDB) LatestTokenTransfersByAccount(account string) ([]models.TokenTransfer, error) {
 	var transfers []models.TokenTransfer
 
-	c, err := m.C(models.TRANSFERS).Find(context.Background(), bson.M{"$or": []bson.M{{"from": hash}, {"to": hash}}}, options.Find().SetSort(bson.D{{"blockNumber", -1}}).SetLimit(100))
+	c, err := m.C(models.TRANSFERS).Find(context.Background(), bson.M{"$or": []bson.M{{"from": account}, {"to": account}}}, options.Find().SetSort(bson.D{{"blockNumber", -1}}).SetLimit(100))
 
 	if err != nil {
 		return transfers, err

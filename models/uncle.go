@@ -19,8 +19,8 @@ type RawUncle struct {
 	Reward      string `bson:"reward" json:"reward"`
 }
 
-func (rw *RawUncle) Convert() *Uncle {
-	return &Uncle{
+func (rw *RawUncle) Convert() Uncle {
+	return Uncle{
 		Number:     util.DecodeHex(rw.Number),
 		Position:   util.DecodeHex(rw.Position),
 		Hash:       rw.Hash,

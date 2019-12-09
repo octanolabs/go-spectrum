@@ -1,152 +1,123 @@
 package rpc
 
 import (
-	"bytes"
-	"encoding/json"
-	"errors"
+	"context"
 	"fmt"
+	"github.com/ubiq/go-ubiq/rpc"
+	"path/filepath"
 
 	log "github.com/sirupsen/logrus"
-
-	"net/http"
-	"time"
 
 	"github.com/octanolabs/go-spectrum/models"
 	"github.com/octanolabs/go-spectrum/util"
 )
 
-// TODO: this should use go-ubiq/rpc
-
 type Config struct {
-	Url     string
-	Timeout string
+	Type     string `json:"type"`
+	Endpoint string `json:"endpoint "`
 }
 
 type RPCClient struct {
-	Url    string
-	client *http.Client
+	client *rpc.Client
 }
 
-type JSONRpcResp struct {
-	Id     *json.RawMessage       `json:"id"`
-	Result *json.RawMessage       `json:"result"`
-	Error  map[string]interface{} `json:"error"`
+func dialNewClient(cfg *Config) (*rpc.Client, error) {
+
+	var (
+		client *rpc.Client
+		err    error
+	)
+
+	switch cfg.Type {
+	case "http":
+		if client, err = rpc.DialHTTP(cfg.Endpoint); err != nil {
+			return nil, err
+		}
+	case "unix", "ipc":
+		if client, err = rpc.DialIPC(context.Background(), cfg.Endpoint); err != nil {
+			return nil, err
+		}
+	case "ws", "websocket", "websockets":
+		if client, err = rpc.DialWebsocket(context.Background(), cfg.Endpoint, ""); err != nil {
+			return nil, err
+		}
+	default:
+		fp, err := filepath.Abs("~/.ubiq/gubiq.ipc")
+		if err != nil {
+			return nil, err
+		}
+		if client, err = rpc.DialIPC(context.Background(), fp); err != nil {
+			return nil, err
+		}
+	}
+
+	return client, nil
 }
 
 func NewRPCClient(cfg *Config) *RPCClient {
-	rpcClient := &RPCClient{Url: cfg.Url}
 
-	timeoutIntv, err := time.ParseDuration(cfg.Timeout)
+	client, err := dialNewClient(cfg)
 	if err != nil {
-		log.Fatalf("RPC: can't parse duration: %v", err)
+		log.Errorf("Error: could not dial rpc client:%v", err)
 	}
 
-	rpcClient.client = &http.Client{
-		Timeout: timeoutIntv,
-	}
+	rpcClient := &RPCClient{client: client}
+
 	return rpcClient
 }
 
-func (r *RPCClient) doPost(method string, params interface{}) (*JSONRpcResp, error) {
-	jq := map[string]interface{}{
-		"jsonrpc": "2.0",
-		"method":  method,
-		"params":  params,
-		"id":      0,
-	}
+func (r *RPCClient) getBlockBy(method string, params []interface{}) (models.Block, error) {
+	var reply models.RawBlock
 
-	data, err := json.Marshal(jq)
+	err := r.client.Call(&reply, method, params)
 
 	if err != nil {
-		log.Debugf("Error marshalling json (doPost): %v", err)
-		return nil, err
+		return models.Block{}, err
 	}
 
-	req, err := http.NewRequest("POST", r.Url, bytes.NewBuffer(data))
-
-	if err != nil {
-		log.Debugf("Error creating http req: %v", err)
-		return nil, err
-	}
-
-	req.Header.Set("Content-Length", (string)(len(data)))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := r.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var rpcResp *JSONRpcResp
-	err = json.NewDecoder(resp.Body).Decode(&rpcResp)
-	if err != nil {
-		return nil, err
-	}
-	if rpcResp.Error != nil {
-		return nil, errors.New(rpcResp.Error["message"].(string))
-	}
-	return rpcResp, err
+	return reply.Convert(), nil
 }
 
-func (r *RPCClient) getBlockBy(method string, params []interface{}) (*models.Block, error) {
-	rpcResp, err := r.doPost(method, params)
-	if err != nil {
-		return nil, err
-	}
-	if rpcResp.Result != nil {
-		var reply *models.RawBlock
-		err = json.Unmarshal(*rpcResp.Result, &reply)
+func (r *RPCClient) getUncleBy(method string, params []interface{}) (models.Uncle, error) {
+	var reply models.RawUncle
 
-		return reply.Convert(), err
+	err := r.client.Call(&reply, method, params)
+	if err != nil {
+		return models.Uncle{}, err
 	}
-	return nil, nil
+
+	return reply.Convert(), nil
 }
 
-func (r *RPCClient) GetLatestBlock() (*models.Block, error) {
+func (r *RPCClient) GetLatestBlock() (models.Block, error) {
 	bn, err := r.LatestBlockNumber()
 
 	if err != nil {
-		return nil, err
+		return models.Block{}, err
 	}
 
 	params := []interface{}{fmt.Sprintf("0x%x", bn)}
 	return r.getBlockBy("eth_getBlockByNumber", params)
 }
 
-func (r *RPCClient) GetBlockByHeight(height uint64) (*models.Block, error) {
+func (r *RPCClient) GetBlockByHeight(height uint64) (models.Block, error) {
 	params := []interface{}{fmt.Sprintf("0x%x", height), true}
 	return r.getBlockBy("eth_getBlockByNumber", params)
 }
 
-func (r *RPCClient) GetBlockByHash(hash string) (*models.Block, error) {
+func (r *RPCClient) GetBlockByHash(hash string) (models.Block, error) {
 	params := []interface{}{hash, true}
 	return r.getBlockBy("eth_getBlockByHash", params)
 }
 
-func (r *RPCClient) getUncleBy(method string, params []interface{}) (*models.Uncle, error) {
-	rpcResp, err := r.doPost(method, params)
-	if err != nil {
-		return nil, err
-	}
-	if rpcResp.Result != nil {
-		var reply *models.RawUncle
-		err = json.Unmarshal(*rpcResp.Result, &reply)
-
-		return reply.Convert(), err
-	}
-	return nil, nil
-}
-
-func (r *RPCClient) GetUncleByBlockNumberAndIndex(height uint64, index int) (*models.Uncle, error) {
+func (r *RPCClient) GetUncleByBlockNumberAndIndex(height uint64, index int) (models.Uncle, error) {
 	params := []interface{}{fmt.Sprintf("0x%x", height), fmt.Sprintf("0x%x", index)}
 	return r.getUncleBy("eth_getUncleByBlockNumberAndIndex", params)
 }
 
-func (r *RPCClient) GetUnclesInBlock(uncles []string, height uint64) []*models.Uncle {
+func (r *RPCClient) GetUnclesInBlock(uncles []string, height uint64) []models.Uncle {
 
-	var u []*models.Uncle
+	var u []models.Uncle
 
 	for k := range uncles {
 		uncle, err := r.GetUncleByBlockNumberAndIndex(height, k)
@@ -160,38 +131,34 @@ func (r *RPCClient) GetUnclesInBlock(uncles []string, height uint64) []*models.U
 }
 
 func (r *RPCClient) LatestBlockNumber() (uint64, error) {
-	rpcResp, err := r.doPost("eth_blockNumber", []interface{}{})
+	var bn string
 
+	err := r.client.Call(&bn, "eth_blockNumber", []interface{}{})
 	if err != nil {
 		return 0, err
 	}
 
-	if rpcResp.Result != nil {
-		var reply string
-		err = json.Unmarshal(*rpcResp.Result, &reply)
-		return util.DecodeHex(reply), err
-	}
-	return 0, nil
+	return util.DecodeHex(bn), nil
 
 }
 
-func (r *RPCClient) GetTxReceipt(hash string) (*models.TxReceipt, error) {
-	rpcResp, err := r.doPost("eth_getTransactionReceipt", []string{hash})
+func (r *RPCClient) GetTxReceipt(hash string) (models.TxReceipt, error) {
+	var reply models.RawTxReceipt
+
+	err := r.client.Call(&reply, "eth_getTransactionReceipt", hash)
+
 	if err != nil {
-		return nil, err
+		return models.TxReceipt{}, err
 	}
-	if rpcResp.Result != nil {
-		var reply *models.RawTxReceipt
-		err = json.Unmarshal(*rpcResp.Result, &reply)
-		return reply.Convert(), err
-	}
-	return nil, nil
+
+	return models.TxReceipt{}, nil
 }
 
 func (r *RPCClient) Ping() error {
-	_, err := r.doPost("web3_clientVersion", []string{})
+	err := r.client.Call(nil, "web3_clientVersion", []interface{}{})
 	if err != nil {
 		return err
 	}
+
 	return nil
 }

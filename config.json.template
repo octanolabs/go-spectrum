@@ -22,7 +22,7 @@
     "password": "UBQ4Lyfe"
   },
   "rpc": {
-    "url": "http://127.0.0.1:8588",
-    "timeout": "60s"
+    "type": "http"
+    "url": "127.0.0.1:8588",
   }
 }

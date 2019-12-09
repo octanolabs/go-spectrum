@@ -121,26 +121,38 @@ func (a *ApiServer) Start() {
 
 	r := mux.NewRouter()
 
-	r.HandleFunc("/supply/{symbol}", a.getSupply).Methods("GET")
-	r.HandleFunc("/forkedblock/{number}", a.getBlockByNumber).Methods("GET")
-	r.HandleFunc("/block/{number}", a.getBlockByNumber).Methods("GET")
-	r.HandleFunc("/block/{number}/txns", a.getBlockTransactions).Methods("GET")
-	r.HandleFunc("/blockbyhash/{hash}", a.getBlockByHash).Methods("GET")
+	// Gin inspect the context and convert url to json req
+
+	// blocks
 	r.HandleFunc("/latest", a.getLatestBlock).Methods("GET")
 	r.HandleFunc("/latestblocks/{limit}", a.getLatestBlocks).Methods("GET")
-	r.HandleFunc("/latestforkedblocks/{limit}", a.getLatestForkedBlocks).Methods("GET")
-	r.HandleFunc("/latesttransactions/{limit}", a.getLatestTransactions).Methods("GET")
-	r.HandleFunc("/latestaccounttxns/{hash}", a.getLatestTransactionsByAccount).Methods("GET")
-	r.HandleFunc("/latestaccounttokentxns/{hash}", a.getLatestTokenTransfersByAccount).Methods("GET")
-	r.HandleFunc("/latesttokentransfers/{limit}", a.getLatestTokenTransfers).Methods("GET")
+	r.HandleFunc("/blockbyhash/{hash}", a.getBlockByHash).Methods("GET")
+	r.HandleFunc("/block/{number}", a.getBlockByNumber).Methods("GET")
+	r.HandleFunc("/block/{number}/txns", a.getBlockTransactions).Methods("GET")
+
+	// uncles
 	r.HandleFunc("/latestuncles/{limit}", a.getLatestUncles).Methods("GET")
-	r.HandleFunc("/transaction/{hash}", a.getTransactionByHash).Methods("GET")
-	r.HandleFunc("/transactionbycontract/{hash}", a.getTransactionByContractAddress).Methods("GET")
-	r.HandleFunc("/latesttransfersbytoken/{hash}", a.getLatestTransfersByToken).Methods("GET")
-	r.HandleFunc("/tokentransfersbyaccount/{token}/{account}", a.getTokenTransfersByAccount).Methods("GET")
 	r.HandleFunc("/uncle/{hash}", a.getUncleByHash).Methods("GET")
+
+	// reorgs
+	r.HandleFunc("/forkedblock/{number}", a.getBlockByNumber).Methods("GET")
+	r.HandleFunc("/latestforkedblocks/{limit}", a.getLatestForkedBlocks).Methods("GET")
+
+	// txs
+	r.HandleFunc("/latesttransactions/{limit}", a.getLatestTransactions).Methods("GET")
+	r.HandleFunc("/transaction/{hash}", a.getTransactionByHash).Methods("GET")
+	r.HandleFunc("/latestaccounttxns/{hash}", a.getLatestTransactionsByAccount).Methods("GET")
+	r.HandleFunc("/transactionbycontract/{hash}", a.getTransactionByContractAddress).Methods("GET")
+
+	// transfers
+	r.HandleFunc("/latesttokentransfers/{limit}", a.getLatestTokenTransfers).Methods("GET")
+	r.HandleFunc("/latestaccounttokentxns/{hash}", a.getLatestTokenTransfersByAccount).Methods("GET")
+	r.HandleFunc("/tokentransfersbyaccount/{token}/{account}", a.getTokenTransfersByAccount).Methods("GET")
+	r.HandleFunc("/latesttransfersbytoken/{hash}", a.getLatestTransfersByToken).Methods("GET")
+
 	//r.HandleFunc("/charts/{chart}/{limit}", a.getChartData).Methods("GET")
-	r.HandleFunc("/geodata", a.getGeodata).Methods("GET")
+	r.HandleFunc("/supply/{symbol}", a.getSupply).Methods("GET")
+	//r.HandleFunc("/geodata", a.getGeodata).Methods("GET")
 
 	r.Use(loggingMiddleware)
 

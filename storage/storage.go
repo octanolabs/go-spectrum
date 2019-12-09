@@ -30,13 +30,11 @@ type MongoDB struct {
 	db     *mongo.Database
 }
 
-// todo:
-// √ Store
-// √ Add back indexes
-// √ continue moving methods to mongo driver
-// √ switch the supply code to explorer code
-
 func NewConnection(cfg *Config) (*MongoDB, error) {
+
+	if cfg.Symbol == "" {
+		return nil, errors.New("symbol not set")
+	}
 
 	client, err := mongo.NewClient(options.Client().ApplyURI(cfg.ConnectionString()))
 	if err != nil {

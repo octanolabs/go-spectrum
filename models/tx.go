@@ -22,8 +22,8 @@ type RawTransaction struct {
 	S                string `json:"s"`
 }
 
-func (rt *RawTransaction) Convert() *Transaction {
-	return &Transaction{
+func (rt *RawTransaction) Convert() Transaction {
+	return Transaction{
 		BlockHash:   rt.BlockHash,
 		BlockNumber: util.DecodeHex(rt.BlockNumber),
 		Hash:        rt.Hash,
@@ -90,7 +90,7 @@ func (tx *Transaction) IsTokenTransfer() bool {
 	}
 }
 
-func (tx *Transaction) GetTokenTransfer() *TokenTransfer {
+func (tx *Transaction) GetTokenTransfer() TokenTransfer {
 	var params []string
 
 	method := tx.Input[:10]
@@ -105,12 +105,12 @@ func (tx *Transaction) GetTokenTransfer() *TokenTransfer {
 		}
 	} else {
 		log.Errorf("Error processing token transfer: input length is not standard: len: %v", len(tx.Input))
-		return nil
+		return TokenTransfer{}
 	}
 
 	switch method {
 	case "0xa9059cbb": // transfer
-		return &TokenTransfer{
+		return TokenTransfer{
 			From:     tx.From,
 			To:       util.InputParamsToAddress(params[0]),
 			Value:    util.DecodeValueHex(params[1]),
@@ -119,7 +119,7 @@ func (tx *Transaction) GetTokenTransfer() *TokenTransfer {
 		}
 
 	case "0x23b872dd": // transferFrom
-		return &TokenTransfer{
+		return TokenTransfer{
 			From:     util.InputParamsToAddress(params[0]),
 			To:       util.InputParamsToAddress(params[1]),
 			Value:    util.DecodeValueHex(params[2]),
@@ -128,7 +128,7 @@ func (tx *Transaction) GetTokenTransfer() *TokenTransfer {
 		}
 
 	case "0x6ea056a9": // sweep
-		return &TokenTransfer{
+		return TokenTransfer{
 			From:     tx.To,
 			To:       tx.From,
 			Value:    util.DecodeValueHex(params[1]),
@@ -137,7 +137,7 @@ func (tx *Transaction) GetTokenTransfer() *TokenTransfer {
 		}
 
 	case "0x40c10f19": // mint
-		return &TokenTransfer{
+		return TokenTransfer{
 			From:     "0x0000000000000000000000000000000000000000",
 			To:       util.InputParamsToAddress(params[0]),
 			Value:    util.DecodeValueHex(params[1]),
@@ -145,7 +145,7 @@ func (tx *Transaction) GetTokenTransfer() *TokenTransfer {
 			Method:   "mint",
 		}
 	default:
-		return nil
+		return TokenTransfer{Method: "unkown", Data: tx.Input}
 	}
 
 }
@@ -159,6 +159,8 @@ type TokenTransfer struct {
 	Value       string `bson:"value" json:"value"`
 	Contract    string `bson:"contract" json:"contract"`
 	Method      string `bson:"method" json:"method"`
+	// If the token can't be recognized we give it "unknown" method and attach the input data
+	Data string `json:"data,omitempty" bson:"data,omitempty"`
 }
 
 type RawTxReceipt struct {
@@ -174,8 +176,8 @@ type RawTxReceipt struct {
 	Status            string  `json:"status"`
 }
 
-func (rtr *RawTxReceipt) Convert() *TxReceipt {
-	return &TxReceipt{
+func (rtr *RawTxReceipt) Convert() TxReceipt {
+	return TxReceipt{
 		TransactionHash:   rtr.TransactionHash,
 		TransactionIndex:  rtr.TransactionIndex,
 		BlockNumber:       util.DecodeHex(rtr.BlockNumber),
