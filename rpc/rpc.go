@@ -3,8 +3,8 @@ package rpc
 import (
 	"context"
 	"fmt"
+	"github.com/mitchellh/go-homedir"
 	"github.com/ubiq/go-ubiq/rpc"
-	"path/filepath"
 
 	log "github.com/sirupsen/logrus"
 
@@ -42,7 +42,7 @@ func dialNewClient(cfg *Config) (*rpc.Client, error) {
 			return nil, err
 		}
 	default:
-		fp, err := filepath.Abs("~/.ubiq/gubiq.ipc")
+		fp, err := homedir.Expand("~/.ubiq/gubiq.ipc")
 		if err != nil {
 			return nil, err
 		}
