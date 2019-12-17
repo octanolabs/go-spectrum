@@ -58,10 +58,11 @@ func v3RouterHandler(server *rpc.Server) gin.HandlerFunc {
 
 func jsonParserMiddleware() gin.HandlerFunc {
 	return func(context *gin.Context) {
-		method, params := util.ParseJsonRequest(context.Copy().Request)
+		method, params, newReader := util.ParseJsonRequest(context.Request)
 
-		context.Keys["method"] = method
-		context.Keys["params"] = params
+		context.Request.Body = newReader
+		context.Set("method", method)
+		context.Set("params", params)
 	}
 }
 
@@ -69,9 +70,10 @@ func jsonLoggerMiddleware() gin.HandlerFunc {
 	return gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
 
 		//your custom format
-		return fmt.Sprintf("%s - [%s] \t %s | \t %s - %s | %s | \t %s - \t %s",
-			param.TimeStamp.Format(time.RFC822Z),
+		return fmt.Sprintf("%s - [%d][%s] \t %s | \t %s - %s | %s | %s\t-\t%s\n",
+			param.TimeStamp.Format(time.RFC1123),
 			param.StatusCode,
+			param.Method,
 			param.Latency,
 			param.ClientIP,
 			param.Request.UserAgent(),
@@ -97,9 +99,13 @@ func NewV3ServerStart(backend V3api, cfg *Config) {
 		log.Errorf("Error: couldn't register service: %v", err)
 	}
 
-	router := gin.Default()
+	router := gin.New()
+
+	router.Use(gin.Recovery())
 
 	v3 := router.Group("v3")
+
+	//FIXME: this is blocking the server from sending response somehow
 
 	v3.Use(jsonParserMiddleware())
 	v3.Use(jsonLoggerMiddleware())

@@ -3,6 +3,7 @@ package util
 import (
 	"bytes"
 	"io"
+	"io/ioutil"
 	"math/big"
 	"net/http"
 	"strconv"
@@ -172,28 +173,26 @@ func baseBlockReward(height uint64) *big.Int {
 	}
 }
 
-func ParseJsonRequest(r *http.Request) (string, []json.RawMessage) {
+func ParseJsonRequest(r *http.Request) (string, []json.RawMessage, io.ReadCloser) {
 
 	var (
 		b   = make([]byte, r.ContentLength)
 		req struct {
-			method string            `json:"method"`
-			params []json.RawMessage `json:"params"`
+			Method string            `json:"method"`
+			Params []json.RawMessage `json:"params"`
 		}
 	)
 
-	buf := bytes.NewBuffer(b)
-
-	_, err := io.Copy(buf, r.Body)
+	b, err := ioutil.ReadAll(io.LimitReader(r.Body, r.ContentLength))
 	if err != nil {
 		log.Errorf("Util: couldn't write request body to buffer :%v", err)
 	}
 
-	err = json.Unmarshal(b, req)
+	err = json.Unmarshal(b, &req)
 
 	if err != nil {
 		log.Errorf("Error: couldn't unmarshal body :%v", err)
 	}
 
-	return req.method, req.params
+	return req.Method, req.Params, ioutil.NopCloser(bytes.NewReader(b))
 }
