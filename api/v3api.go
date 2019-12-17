@@ -1,8 +1,12 @@
 package api
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/octanolabs/go-spectrum/models"
+	"github.com/octanolabs/go-spectrum/util"
 	log "github.com/sirupsen/logrus"
 	"github.com/ubiq/go-ubiq/rpc"
 )
@@ -10,7 +14,7 @@ import (
 type V3api interface {
 	//blocks
 	LatestBlock() (models.Block, error)
-	LatestBlocks(limit int) ([]models.Block, error)
+	LatestBlocks(limit int64) ([]models.Block, error)
 	BlockByHash(hash string) (models.Block, error)
 	BlockByNumber(number uint64) (models.Block, error)
 	TransactionsByBlockNumber(number uint64) ([]models.Transaction, error)
@@ -52,7 +56,38 @@ func v3RouterHandler(server *rpc.Server) gin.HandlerFunc {
 	}
 }
 
+func jsonParserMiddleware() gin.HandlerFunc {
+	return func(context *gin.Context) {
+		method, params := util.ParseJsonRequest(context.Copy().Request)
+
+		context.Keys["method"] = method
+		context.Keys["params"] = params
+	}
+}
+
+func jsonLoggerMiddleware() gin.HandlerFunc {
+	return gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
+
+		//your custom format
+		return fmt.Sprintf("%s - [%s] \t %s | \t %s - %s | %s | \t %s - \t %s",
+			param.TimeStamp.Format(time.RFC822Z),
+			param.StatusCode,
+			param.Latency,
+			param.ClientIP,
+			param.Request.UserAgent(),
+			param.Path,
+			param.Keys["method"],
+			param.Keys["params"],
+		)
+	})
+}
+
 func NewV3ServerStart(backend V3api, cfg *Config) {
+
+	//TODO: Refactor api code
+	//		=================
+	//		add logger to read request body and params from req
+	//		try to re-implement v2 api as gin wrapper around v3 api
 
 	server := rpc.NewServer()
 
@@ -64,7 +99,14 @@ func NewV3ServerStart(backend V3api, cfg *Config) {
 
 	router := gin.Default()
 
-	_ = router.Group("v3", v3RouterHandler(server))
+	v3 := router.Group("v3")
+
+	v3.Use(jsonParserMiddleware())
+	v3.Use(jsonLoggerMiddleware())
+
+	{
+		v3.POST("/", v3RouterHandler(server))
+	}
 
 	go func() {
 		err := router.Run(":" + cfg.Port)

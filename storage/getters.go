@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+
 	"github.com/octanolabs/go-spectrum/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -43,10 +44,10 @@ func (m *MongoDB) LatestBlock() (models.Block, error) {
 	return block, err
 }
 
-func (m *MongoDB) LatestBlocks(limit int) ([]models.Block, error) {
+func (m *MongoDB) LatestBlocks(limit int64) ([]models.Block, error) {
 	var blocks []models.Block
 
-	c, err := m.C(models.BLOCKS).Find(context.Background(), bson.M{}, options.Find().SetSort(bson.D{{"number", -1}}).SetLimit(50))
+	c, err := m.C(models.BLOCKS).Find(context.Background(), bson.M{}, options.Find().SetSort(bson.D{{"number", -1}}).SetLimit(limit))
 
 	if err != nil {
 		return blocks, err

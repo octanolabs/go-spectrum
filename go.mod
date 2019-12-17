@@ -9,6 +9,7 @@ require (
 	github.com/google/go-cmp v0.3.1 // indirect
 	github.com/gorilla/mux v1.7.2
 	github.com/hashicorp/golang-lru v0.5.1
+	github.com/json-iterator/go v1.1.7
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/oschwald/geoip2-golang v1.3.0

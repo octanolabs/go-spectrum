@@ -267,7 +267,7 @@ func (a *ApiServer) getLatestBlocks(w http.ResponseWriter, r *http.Request) {
 	if limit > 1000 {
 		limit = 1000
 	}
-	blocks, err := a.backend.LatestBlocks(limit)
+	blocks, err := a.backend.LatestBlocks(int64(limit))
 
 	if err != nil {
 		a.sendError(w, http.StatusInternalServerError, err.Error())

@@ -1,12 +1,15 @@
 package util
 
 import (
-	"encoding/json"
+	"bytes"
+	"io"
 	"math/big"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	json "github.com/json-iterator/go"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -167,4 +170,30 @@ func baseBlockReward(height uint64) *big.Int {
 		// genesis
 		return big.NewInt(0)
 	}
+}
+
+func ParseJsonRequest(r *http.Request) (string, []json.RawMessage) {
+
+	var (
+		b   = make([]byte, r.ContentLength)
+		req struct {
+			method string            `json:"method"`
+			params []json.RawMessage `json:"params"`
+		}
+	)
+
+	buf := bytes.NewBuffer(b)
+
+	_, err := io.Copy(buf, r.Body)
+	if err != nil {
+		log.Errorf("Util: couldn't write request body to buffer :%v", err)
+	}
+
+	err = json.Unmarshal(b, req)
+
+	if err != nil {
+		log.Errorf("Error: couldn't unmarshal body :%v", err)
+	}
+
+	return req.method, req.params
 }
