@@ -50,6 +50,17 @@ type V3api interface {
 	ChainStore(symbol string) (models.Store, error)
 }
 
+func v2RouterHandler(server *rpc.Server) gin.HandlerFunc {
+	return func(context *gin.Context) {
+
+		body := util.ConvertJSONHTTPReq(context.Request)
+
+		context.Request.Body = body
+
+		server.ServeHTTP(context.Writer, context.Request)
+	}
+}
+
 func v3RouterHandler(server *rpc.Server) gin.HandlerFunc {
 	return func(context *gin.Context) {
 		server.ServeHTTP(context.Writer, context.Request)
@@ -102,6 +113,15 @@ func NewV3ServerStart(backend V3api, cfg *Config) {
 	router := gin.New()
 
 	router.Use(gin.Recovery())
+
+	v2 := router.Group("v2")
+
+	v2.Use(jsonParserMiddleware())
+	v2.Use(jsonLoggerMiddleware())
+
+	{
+		v2.GET("/", v2RouterHandler(server))
+	}
 
 	v3 := router.Group("v3")
 
