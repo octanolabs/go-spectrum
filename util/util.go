@@ -2,6 +2,7 @@ package util
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"math/big"
@@ -199,53 +200,62 @@ func ParseJsonRequest(r *http.Request) (string, []json.RawMessage, io.ReadCloser
 
 }
 
-var legacyHandlers = map[*regexp.Regexp]func(re *regexp.Regexp, s string) io.Reader{
+var legacyHandlers = map[*regexp.Regexp]func(re *regexp.Regexp, url string) io.Reader{
 
-	regexp.MustCompile(`/(?:latest)`):                                                          func(re *regexp.Regexp, s string) io.Reader { return jsonhttphelper(re, s) },
-	regexp.MustCompile(`/(?:latestblocks)/(?P<params>(?P<limit>.))`):                           func(re *regexp.Regexp, s string) io.Reader { return jsonhttphelper(re, s) },
-	regexp.MustCompile(`/(?:blockbyhash)/(?P<params>(?P<hash>.))`):                             func(re *regexp.Regexp, s string) io.Reader { return jsonhttphelper(re, s) },
-	regexp.MustCompile(`/(?:block)/(?P<params>(?P<number>.))`):                                 func(re *regexp.Regexp, s string) io.Reader { return jsonhttphelper(re, s) },
-	regexp.MustCompile(`/(?:block)(?P<params>(?P<number>.)/(?:txns))`):                         func(re *regexp.Regexp, s string) io.Reader { return jsonhttphelper(re, s) },
-	regexp.MustCompile(`/(?:latestuncles)/(?P<params>(?P<limit>.))`):                           func(re *regexp.Regexp, s string) io.Reader { return jsonhttphelper(re, s) },
-	regexp.MustCompile(`/(?:uncle)/(?P<params>(?P<hash>.))`):                                   func(re *regexp.Regexp, s string) io.Reader { return jsonhttphelper(re, s) },
-	regexp.MustCompile(`/(?:forkedblock)/(?P<params>(?P<number>.))`):                           func(re *regexp.Regexp, s string) io.Reader { return jsonhttphelper(re, s) },
-	regexp.MustCompile(`/(?:latestforkedblocks)/(?P<params>(?P<limit>.))`):                     func(re *regexp.Regexp, s string) io.Reader { return jsonhttphelper(re, s) },
-	regexp.MustCompile(`/(?:latesttransactions)/(?P<params>(?P<limit>.))`):                     func(re *regexp.Regexp, s string) io.Reader { return jsonhttphelper(re, s) },
-	regexp.MustCompile(`/(?:transaction)/(?P<params>(?P<hash>.))`):                             func(re *regexp.Regexp, s string) io.Reader { return jsonhttphelper(re, s) },
-	regexp.MustCompile(`/(?:latestaccounttxns)/(?P<params>(?P<hash>.))`):                       func(re *regexp.Regexp, s string) io.Reader { return jsonhttphelper(re, s) },
-	regexp.MustCompile(`/(?:transactionbycontract)/(?P<params>(?P<hash>.))`):                   func(re *regexp.Regexp, s string) io.Reader { return jsonhttphelper(re, s) },
-	regexp.MustCompile(`/(?:latesttokentransfers)/(?P<params>(?P<limit>.))`):                   func(re *regexp.Regexp, s string) io.Reader { return jsonhttphelper(re, s) },
-	regexp.MustCompile(`/(?:latestaccounttokentxns)/(?P<params>(?P<account>.))`):               func(re *regexp.Regexp, s string) io.Reader { return jsonhttphelper(re, s) },
-	regexp.MustCompile(`/(?:tokentransfersbyaccount)/(?P<params>(?P<token>.)/(?P<account>.))`): func(re *regexp.Regexp, s string) io.Reader { return jsonhttphelper(re, s) },
-	regexp.MustCompile(`/(?:latesttransfersbytoken)/(?P<params>(?P<hash>.))`):                  func(re *regexp.Regexp, s string) io.Reader { return jsonhttphelper(re, s) },
-	regexp.MustCompile(`/(?:charts)/(?P<params>(?P<chart>.)/(?P<limit>.))`):                    func(re *regexp.Regexp, s string) io.Reader { return jsonhttphelper(re, s) },
-	regexp.MustCompile(`/(?:supply)/(?P<params>(?P<symbol>.))`):                                func(re *regexp.Regexp, s string) io.Reader { return jsonhttphelper(re, s) },
-	regexp.MustCompile(`/(?:geodata)`):                                                         func(re *regexp.Regexp, s string) io.Reader { return jsonhttphelper(re, s) },
+	regexp.MustCompile(`/(?:\b(latest)\b)`):                               jsonhttphelper("explorer_latestBlock"),
+	regexp.MustCompile(`/(?:\b(latestblocks)\b)/(?P<params>(.*))`):        jsonhttphelper("explorer_latestBlocks"),
+	regexp.MustCompile(`/(?:\b(blockbyhash)\b)/(?P<params>(.*))`):         jsonhttphelper("explorer_blockByHash"),
+	regexp.MustCompile(`/(?:\b(block)\b)/(?P<params>(.*))`):               jsonhttphelper("explorer_blockByNumber"),
+	regexp.MustCompile(`/(?:\b(block)\b)(?P<params>(.*)/(?:\b(txns)\b))`): jsonhttphelper("explorer_transactionsByBlockNumber"),
+
+	regexp.MustCompile(`/(?:\b(latestuncles)\b)/(?P<params>(.*))`): jsonhttphelper("explorer_latestUncles"),
+	regexp.MustCompile(`/(?:\b(uncle)\b)/(?P<params>(.*))`):        jsonhttphelper("explorer_uncleByHash"),
+
+	regexp.MustCompile(`/(?:\b(forkedblock)\b)/(?P<params>(.*))`):        jsonhttphelper("explorer_forkedBlockByNumber"),
+	regexp.MustCompile(`/(?:\b(latestforkedblocks)\b)/(?P<params>(.*))`): jsonhttphelper("explorer_latestForkedBlocks"),
+
+	regexp.MustCompile(`/(?:\b(latesttransactions)\b)/(?P<params>(.*))`):    jsonhttphelper("explorer_latestTransactions"),
+	regexp.MustCompile(`/(?:\b(transaction)\b)/(?P<params>(.*))`):           jsonhttphelper("explorer_transactionByHash"),
+	regexp.MustCompile(`/(?:\b(latestaccounttxns)\b)/(?P<params>(.*))`):     jsonhttphelper("explorer_latestTransactionsByAccount"),
+	regexp.MustCompile(`/(?:\b(transactionbycontract)\b)/(?P<params>(.*))`): jsonhttphelper("explorer_transactionByContractAddress"),
+
+	regexp.MustCompile(`/(?:\b(latesttokentransfers)\b)/(?P<params>(.*))`):                 jsonhttphelper("explorer_latestTokenTransfers"),
+	regexp.MustCompile(`/(?:\b(latestaccounttokentxns)\b)/(?P<params>(.*))`):               jsonhttphelper("explorer_latestTokenTransfersByAccount"),
+	regexp.MustCompile(`/(?:\b(tokentransfersbyaccount)\b)/(?P<params>\b(.*)\b/\b(.*)\b)`): jsonhttphelper("explorer_tokenTransfersByAccount"),
+	regexp.MustCompile(`/(?:\b(latesttransfersbytoken)\b)/(?P<params>(.*))`):               jsonhttphelper("explorer_latestTransfersOfToken"),
+
+	//regexp.MustCompile(`/(?:\b(charts)\b)/(?P<params>(?P<chart>.)/(?P<limit>.))`): jsonhttphelper("explorer_"),
+	//regexp.MustCompile(`/(?:\b(supply)\b)/(?P<params>(?P<symbol>.))`):             jsonhttphelper("explorer_"),
+	//regexp.MustCompile(`/(?:\b(geodata)\b)`):                                      jsonhttphelper("explorer_"),
 }
 
-func jsonhttphelper(re *regexp.Regexp, s string) io.Reader {
-	var (
-		expanded []byte
-		result   []byte
-	)
+func jsonhttphelper(method string) func(*regexp.Regexp, string) io.Reader {
+	return func(re *regexp.Regexp, url string) io.Reader {
+		var (
+			expanded []byte
+			result   []byte
+		)
 
-	template := `{"id":88, "jsonrpc":"2.0","method":"${method}","params":${params}}`
+		template := fmt.Sprintf(`{"id":88, "jsonrpc":"2.0","method":"%v","params":[${params}]}`, method)
 
-	// For each match of the regex in the content.
-	for _, submatches := range re.FindAllStringSubmatchIndex(s, -1) {
-		// Apply the captured submatches to the template and append the output
-		// to the result.
-		expanded = re.ExpandString(expanded, template, s, submatches)
+		// For each match of the regex in the content.
+		for _, submatches := range re.FindAllStringSubmatchIndex(url, -1) {
+			// Apply the captured submatches to the template and append the output
+			// to the result.
+			expanded = re.ExpandString(expanded, template, url, submatches)
+		}
+
+		//TODO: finish: extract submatches from regex and pass to string
+
+		result, err := json.Marshal(expanded)
+		if err != nil {
+			log.Errorf("Error: couldn't parse regex :%v", err)
+		}
+
+		log.Debugf("expanded: %s", expanded)
+
+		return io.LimitReader(bytes.NewReader(result), int64(len(result)))
 	}
-
-	//TODO: finish: extract submatches from regex and pass to string
-
-	result, err := json.Marshal(expanded)
-	if err != nil {
-		log.Errorf("Error: couldn't parse regex :%v", err)
-	}
-
-	return io.LimitReader(bytes.NewReader(result), int64(len(result)))
 }
 
 func ConvertJSONHTTPReq(r *http.Request) io.ReadCloser {

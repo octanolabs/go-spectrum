@@ -116,16 +116,13 @@ func NewV3ServerStart(backend V3api, cfg *Config) {
 
 	v2 := router.Group("v2")
 
-	v2.Use(jsonParserMiddleware())
 	v2.Use(jsonLoggerMiddleware())
 
 	{
-		v2.GET("/", v2RouterHandler(server))
+		v2.GET("/*path", v2RouterHandler(server))
 	}
 
 	v3 := router.Group("v3")
-
-	//FIXME: this is blocking the server from sending response somehow
 
 	v3.Use(jsonParserMiddleware())
 	v3.Use(jsonLoggerMiddleware())
