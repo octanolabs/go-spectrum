@@ -2,6 +2,9 @@ package api
 
 import (
 	"fmt"
+	json "github.com/json-iterator/go"
+	"net/http/httputil"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -50,14 +53,29 @@ type V3api interface {
 	ChainStore(symbol string) (models.Store, error)
 }
 
-func v2RouterHandler(server *rpc.Server) gin.HandlerFunc {
+func v2ConvertRequest() gin.HandlerFunc {
 	return func(context *gin.Context) {
+		log.Debugln("Convert handler")
 
-		body := util.ConvertJSONHTTPReq(context.Request)
+		newReader, length := util.ConvertJSONHTTPReq(context.Request)
 
-		context.Request.Body = body
+		l := strconv.FormatInt(length, 10)
 
-		server.ServeHTTP(context.Writer, context.Request)
+		context.Request.Body = newReader
+
+		b := new([]byte)
+
+		err := json.NewDecoder(newReader).Decode(b)
+		if err != nil {
+			log.Errorf("error decoding writer content: %v", err)
+		}
+
+		log.Debugln("reader content: %s", b)
+
+		context.Request.Header.Set("Content-Type", "application/json")
+		context.Request.Header.Set("Content-Length", l)
+
+		context.Next()
 	}
 }
 
@@ -69,7 +87,15 @@ func v3RouterHandler(server *rpc.Server) gin.HandlerFunc {
 
 func jsonParserMiddleware() gin.HandlerFunc {
 	return func(context *gin.Context) {
+		log.Debugln("JSON parse request handler")
+
 		method, params, newReader := util.ParseJsonRequest(context.Request)
+
+		requestDump, err := httputil.DumpRequest(context.Request, true)
+		if err != nil {
+			fmt.Println(err)
+		}
+		log.Debugf("req: %v", string(requestDump))
 
 		context.Request.Body = newReader
 		context.Set("method", method)
@@ -116,10 +142,12 @@ func NewV3ServerStart(backend V3api, cfg *Config) {
 
 	v2 := router.Group("v2")
 
+	v2.Use(v2ConvertRequest())
+	v2.Use(jsonParserMiddleware())
 	v2.Use(jsonLoggerMiddleware())
 
 	{
-		v2.GET("/*path", v2RouterHandler(server))
+		v2.GET("/*path", v3RouterHandler(server))
 	}
 
 	v3 := router.Group("v3")
