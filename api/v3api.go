@@ -2,14 +2,11 @@ package api
 
 import (
 	"fmt"
-	json "github.com/json-iterator/go"
-	"net/http/httputil"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/octanolabs/go-spectrum/models"
-	"github.com/octanolabs/go-spectrum/util"
 	log "github.com/sirupsen/logrus"
 	"github.com/ubiq/go-ubiq/rpc"
 )
@@ -55,47 +52,31 @@ type V3api interface {
 
 func v2ConvertRequest() gin.HandlerFunc {
 	return func(context *gin.Context) {
-		log.Debugln("Convert handler")
-
-		newReader, length := util.ConvertJSONHTTPReq(context.Request)
+		newReader, length := ConvertJSONHTTPReq(context.Request)
 
 		l := strconv.FormatInt(length, 10)
 
 		context.Request.Body = newReader
-
-		b := new([]byte)
-
-		err := json.NewDecoder(newReader).Decode(b)
-		if err != nil {
-			log.Errorf("error decoding writer content: %v", err)
-		}
-
-		log.Debugln("reader content: %s", b)
-
-		context.Request.Header.Set("Content-Type", "application/json")
+		context.Request.ContentLength = length
 		context.Request.Header.Set("Content-Length", l)
+		context.Request.Header.Set("Content-Type", "application/json")
 
-		context.Next()
 	}
 }
 
 func v3RouterHandler(server *rpc.Server) gin.HandlerFunc {
 	return func(context *gin.Context) {
+
+		//TODO: added this for dev. Maybe remove in production
+		context.Request.Header.Set("Access-Control-Allow-Origin", "localhost:8080")
+
 		server.ServeHTTP(context.Writer, context.Request)
 	}
 }
 
 func jsonParserMiddleware() gin.HandlerFunc {
 	return func(context *gin.Context) {
-		log.Debugln("JSON parse request handler")
-
-		method, params, newReader := util.ParseJsonRequest(context.Request)
-
-		requestDump, err := httputil.DumpRequest(context.Request, true)
-		if err != nil {
-			fmt.Println(err)
-		}
-		log.Debugf("req: %v", string(requestDump))
+		method, params, newReader := ParseJsonRequest(context.Request)
 
 		context.Request.Body = newReader
 		context.Set("method", method)
