@@ -2,12 +2,13 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/octanolabs/go-spectrum/api"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"time"
+
+	"github.com/octanolabs/go-spectrum/api"
 
 	log "github.com/sirupsen/logrus"
 
@@ -98,12 +99,7 @@ func main() {
 	if cfg.Crawler.Enabled {
 		go startCrawler(mongo, rpc, &cfg.Crawler)
 	} else if cfg.Api.Enabled {
-		if cfg.Api.V3 {
-			api.NewV3ServerStart(mongo, &cfg.Api)
-		} else {
-			server := api.New(mongo, &cfg.Api)
-			server.Start()
-		}
+		api.NewV3ServerStart(mongo, &cfg.Api)
 	}
 
 	quit := make(chan bool)

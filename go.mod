@@ -7,17 +7,14 @@ require (
 	github.com/deckarep/golang-set v1.7.1 // indirect
 	github.com/gin-gonic/gin v1.5.0
 	github.com/google/go-cmp v0.3.1 // indirect
-	github.com/gorilla/mux v1.7.2
 	github.com/hashicorp/golang-lru v0.5.1
 	github.com/json-iterator/go v1.1.7
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/oschwald/geoip2-golang v1.3.0
-	github.com/oschwald/maxminddb-golang v1.3.0 // indirect
-	github.com/rs/cors v1.6.0
+	github.com/rs/cors v1.6.0 // indirect
 	github.com/sirupsen/logrus v1.4.2
 	github.com/tidwall/pretty v1.0.0 // indirect
-	github.com/ubiq/go-ubiq v2.3.0+incompatible
+	github.com/ubiq/go-ubiq v3.0.1+incompatible
 	go.mongodb.org/mongo-driver v1.1.3
 	golang.org/x/crypto v0.0.0-20191108234033-bd318be0434a // indirect
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e // indirect

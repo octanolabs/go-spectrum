@@ -1,11 +1,12 @@
 package crawler
 
 import (
-	"github.com/octanolabs/go-spectrum/storage"
 	"math/big"
 	"net/url"
 	"os"
 	"time"
+
+	"github.com/octanolabs/go-spectrum/storage"
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/octanolabs/go-spectrum/rpc"
@@ -50,7 +51,7 @@ func (c *Crawler) Start() {
 
 	if err != nil {
 		if err == err.(*url.Error) {
-			log.Errorf("Gubiq node offline")
+			log.Errorf("Gubiq node offline: %v", err)
 			os.Exit(1)
 		} else {
 			log.Errorf("Error pinging rpc node: %#v", err)

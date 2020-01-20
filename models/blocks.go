@@ -92,7 +92,7 @@ type Block struct {
 	// Same as Txs
 	Uncles  []string `bson:"-" json:"-"`
 	UncleNo int      `bson:"uncles" json:"uncles"`
-	// TODO: Should these be strings?
+	// TODO: Should these be strings
 	BlockReward  string `bson:"blockReward" json:"blockReward"`
 	UncleRewards string `bson:"uncleRewards" json:"uncleRewards"`
 	AvgGasPrice  string `bson:"avgGasPrice" json:"avgGasPrice"`
