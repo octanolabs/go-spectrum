@@ -41,6 +41,15 @@ func (c *Crawler) SyncLoop() {
 	syncUtility.setInit(currentBlock)
 mainloop:
 	for ; currentBlock <= chainHead; currentBlock++ {
+
+		if c.state.reorg {
+			// reorg has occured, reset mainloop
+			syncUtility.close(currentBlock)
+			c.state.reorg = false
+			c.state.syncing = false
+			break mainloop
+		}
+
 		block, err := c.rpc.GetBlockByHeight(currentBlock)
 		if err != nil {
 			log.Errorf("Error getting block: %v", err)
@@ -53,14 +62,6 @@ mainloop:
 		syncUtility.add(1)
 
 		go c.Sync(block, syncUtility)
-
-		if c.state.reorg {
-			// reorg has occured, reset mainloop
-			syncUtility.close(currentBlock)
-			c.state.reorg = false
-			c.state.syncing = false
-			break mainloop
-		}
 
 		syncUtility.wait(c.cfg.MaxRoutines)
 		syncUtility.swapChannels()
@@ -283,5 +284,4 @@ func (c *Crawler) handleReorg(b models.Block, syncUtility Sync) {
 
 	// update state
 	c.state.reorg = true
-	syncUtility.close(b.Number)
 }

@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/octanolabs/go-spectrum/models"
 	log "github.com/sirupsen/logrus"
@@ -64,6 +65,12 @@ func v2ConvertRequest() gin.HandlerFunc {
 	}
 }
 
+func v2ConvertResponse() gin.HandlerFunc {
+	return func(context *gin.Context) {
+		context.Writer = v2ConvertResponseWriter{ResponseWriter: context.Writer}
+	}
+}
+
 func v3RouterHandler(server *rpc.Server) gin.HandlerFunc {
 	return func(context *gin.Context) {
 
@@ -120,12 +127,20 @@ func NewV3ServerStart(backend V3api, cfg *Config) {
 	router := gin.New()
 
 	router.Use(gin.Recovery())
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:  []string{"*"},
+		AllowMethods:  []string{"GET", "POST"},
+		AllowHeaders:  []string{"Origin"},
+		ExposeHeaders: []string{"Content-Length"},
+		MaxAge:        12 * time.Hour,
+	}))
 
 	v2 := router.Group("v2")
 
 	v2.Use(v2ConvertRequest())
 	v2.Use(jsonParserMiddleware())
 	v2.Use(jsonLoggerMiddleware())
+	v2.Use(v2ConvertResponse())
 
 	{
 		v2.GET("/*path", v3RouterHandler(server))

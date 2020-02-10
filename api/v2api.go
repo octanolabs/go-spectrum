@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"unicode"
 
+	"github.com/gin-gonic/gin"
+
 	json "github.com/json-iterator/go"
 	log "github.com/sirupsen/logrus"
 )
@@ -135,4 +137,29 @@ func ParseJsonRequest(r *http.Request) (string, []json.RawMessage, io.ReadCloser
 
 	return req.Method, req.Params, ioutil.NopCloser(bytes.NewReader(b))
 
+}
+
+type v2ConvertResponseWriter struct {
+	gin.ResponseWriter
+}
+
+func (r v2ConvertResponseWriter) Write(b []byte) (int, error) {
+
+	var (
+		req struct {
+			Body json.RawMessage `json:"result"`
+		}
+	)
+
+	err := json.Unmarshal(b, &req)
+
+	if err != nil {
+		log.Errorf("Error: couldn't marshal response body: %v", err)
+	}
+
+	if string(req.Body) == "null" {
+		req.Body = []byte("[]")
+	}
+
+	return r.ResponseWriter.Write(req.Body)
 }

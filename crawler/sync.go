@@ -16,6 +16,9 @@ type Sync struct {
 	wg       *sync.WaitGroup
 }
 
+// TODO: A sync is goroutines linked by channels, so one gorutine can be represented as []chan{<-chanIn, chanOut<-}
+// make sync nore testable
+
 func (s *Sync) close(current uint64) {
 closer:
 	for {
