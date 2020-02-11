@@ -16,5 +16,5 @@ type Store struct {
 	Supply    string `bson:"supply" json:"supply"`
 	// LatestBlock Block     `bson:"latestBlock" json:"latestBlock"`
 	// Price       string    `bson:"price" json:"price"`
-	// Sync [1]uint64 `bson:"sync"`
+	// syncBlock [1]uint64 `bson:"sync"`
 }

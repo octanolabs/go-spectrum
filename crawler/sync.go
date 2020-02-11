@@ -9,7 +9,6 @@ import (
 )
 
 type Sync struct {
-	synctype string
 	routines int
 	c1, c2   chan uint64
 	logChan  chan *logObject
@@ -53,10 +52,6 @@ func (s *Sync) swapChannels() {
 func (s *Sync) setInit(n uint64) {
 	s.c2 <- n
 	s.swapChannels()
-}
-
-func (s *Sync) setType(t string) {
-	s.synctype = t
 }
 
 func (s *Sync) recieve() uint64 {

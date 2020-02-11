@@ -1,18 +1,21 @@
 package crawler
 
 import (
+	"fmt"
 	"math/big"
-	"sync"
+	stdSync "sync"
 
 	log "github.com/sirupsen/logrus"
 
 	"github.com/octanolabs/go-spectrum/models"
+
+	"github.com/octanolabs/go-spectrum/crawler/syncronizer"
 )
 
 type data struct {
 	avgGasPrice, txFees *big.Int
 	tokentransfers      int
-	sync.Mutex
+	stdSync.Mutex
 }
 
 func (c *Crawler) SyncLoop() {
@@ -32,54 +35,53 @@ func (c *Crawler) SyncLoop() {
 		log.Errorf("Error getting block number: %v", err)
 	}
 
-	syncUtility := NewSync()
+	sync := syncronizer.NewSync(c.cfg.MaxRoutines)
 
 	c.state.syncing = true
-	c.state.reorg = false
 	currentBlock = indexHead.Number + 1
 
-	syncUtility.setInit(currentBlock)
-mainloop:
 	for ; currentBlock <= chainHead; currentBlock++ {
 
-		if c.state.reorg {
-			// reorg has occured, reset mainloop
-			syncUtility.close(currentBlock)
-			c.state.reorg = false
-			c.state.syncing = false
-			break mainloop
-		}
+		sync.AddLink(func(r *syncronizer.Routine) {
+			c.sync(currentBlock, sync, r)
+		})
 
-		block, err := c.rpc.GetBlockByHeight(currentBlock)
-		if err != nil {
-			log.Errorf("Error getting block: %v", err)
-			c.state.syncing = false
-			break mainloop
-		}
-
-		log.Debugf("Rpc fetched block %+v", block)
-
-		syncUtility.add(1)
-
-		go c.Sync(block, syncUtility)
-
-		syncUtility.wait(c.cfg.MaxRoutines)
-		syncUtility.swapChannels()
 	}
 
-	syncUtility.close(currentBlock)
+	abort := sync.Finish()
+
+	if abort {
+		log.Error("Aborted sync")
+	}
+
 	c.state.syncing = false
 }
 
-func (c *Crawler) Sync(block models.Block, syncUtility Sync) {
-	syncUtility.recieve()
+func (c *Crawler) sync(height uint64, sync *syncronizer.Synchronizer, r *syncronizer.Routine) {
+	block, err := c.rpc.GetBlockByHeight(height)
+	if err != nil {
+		log.Errorf("Error getting block: %v", err)
+		c.state.syncing = false
+		sync.Abort()
+	}
+
+	abort := r.Link()
+
+	if abort {
+		return
+	}
+
+	c.syncBlock(block, sync)
+}
+
+func (c *Crawler) syncBlock(block models.Block, sync *syncronizer.Synchronizer) {
 
 	var (
 		uncles              = make([]models.Uncle, 0)
 		avgGasPrice, txFees = new(big.Int), new(big.Int)
 		pSupply             = new(big.Int)
 		pHash               string
-		tokentransfers      int
+		tokenTransfers      int
 	)
 
 	// get parent block info
@@ -93,7 +95,13 @@ func (c *Crawler) Sync(block models.Block, syncUtility Sync) {
 	pHash = prevBlock.Hash
 
 	if pHash != block.ParentHash {
-		c.handleReorg(block, syncUtility)
+		// If pHash != to currBlock's parentHash, pHash has reorg'd
+		// we remove phash from blocks collection and insert into Forkedblocks collection
+		// then we abort sync so that we can sync missing blocks
+		c.handleReorg(block)
+
+		sync.Abort()
+		return
 	}
 
 	// populate uncles
@@ -109,7 +117,7 @@ func (c *Crawler) Sync(block models.Block, syncUtility Sync) {
 	supply.Add(pSupply, minted)
 
 	if len(block.Transactions) > 0 {
-		avgGasPrice, txFees, tokentransfers = c.processTransactions(block.Transactions, block.Timestamp)
+		avgGasPrice, txFees, tokenTransfers = c.processTransactions(block.Transactions, block.Timestamp)
 	}
 
 	minted.Add(blockReward, uncleRewards)
@@ -130,13 +138,7 @@ func (c *Crawler) Sync(block models.Block, syncUtility Sync) {
 	// add required block info to cache for next iteration
 	c.blockCache.Add(block.Number, blockCache{Supply: supply, Hash: block.Hash})
 
-	syncUtility.log(block.Number, block.Txs, tokentransfers, block.UncleNo, minted, supply)
-	syncUtility.send(block.Number + 1)
-	syncUtility.done()
-
-	if c.state.reorg {
-		return
-	}
+	sync.Log(block.Number, block.Txs, tokenTransfers, block.UncleNo, minted, supply)
 }
 
 func (c *Crawler) syncForkedBlock(b models.Block) {
@@ -158,13 +160,15 @@ func (c *Crawler) syncForkedBlock(b models.Block) {
 		log.Errorf("Error purging reorg'd block: %v", err)
 	}
 
-	log.Warnf("HEAD - %v %v", b.Number, b.Hash)
-	log.Warnf("FORKED - %v %v", dbBlock.Number, dbBlock.Hash)
+	log.WithFields(log.Fields{
+		"HEAD":   fmt.Sprint(b.Number, b.Hash),
+		"FORKED": fmt.Sprint(dbBlock.Number, dbBlock.Hash),
+	}).Warn("Synced forked block")
 }
 
 func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uint64) (*big.Int, *big.Int, int) {
 
-	var twg sync.WaitGroup
+	var twg stdSync.WaitGroup
 
 	data := &data{
 		avgGasPrice:    big.NewInt(0),
@@ -181,7 +185,7 @@ func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uin
 	return data.avgGasPrice.Div(data.avgGasPrice, big.NewInt(int64(len(txs)))), data.txFees, data.tokentransfers
 }
 
-func (c *Crawler) processTransaction(rt models.RawTransaction, timestamp uint64, data *data, twg *sync.WaitGroup) {
+func (c *Crawler) processTransaction(rt models.RawTransaction, timestamp uint64, data *data, twg *stdSync.WaitGroup) {
 
 	v := rt.Convert()
 
@@ -194,7 +198,6 @@ func (c *Crawler) processTransaction(rt models.RawTransaction, timestamp uint64,
 		log.Errorf("Error getting tx receipt: %v", err)
 	}
 
-	//TODO: is this really an average?
 	data.Lock()
 	data.avgGasPrice.Add(data.avgGasPrice, big.NewInt(0).SetUint64(v.GasPrice))
 	data.Unlock()
@@ -268,7 +271,7 @@ func (c *Crawler) getPreviousBlock(blockNumber uint64) (blockCache, error) {
 	}
 }
 
-func (c *Crawler) handleReorg(b models.Block, syncUtility Sync) {
+func (c *Crawler) handleReorg(b models.Block) {
 
 	// a reorg has occured
 	log.Warnf("Reorg detected at block %v", b.Number-1)
@@ -282,6 +285,4 @@ func (c *Crawler) handleReorg(b models.Block, syncUtility Sync) {
 
 	log.Warnf("Forked block %v synced and removed from blocks collection.", b.Number-1)
 
-	// update state
-	c.state.reorg = true
 }
