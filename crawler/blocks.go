@@ -42,8 +42,24 @@ func (c *Crawler) SyncLoop() {
 
 	for ; currentBlock <= chainHead; currentBlock++ {
 
-		sync.AddLink(func(r *syncronizer.Routine) {
-			c.sync(currentBlock, sync, r)
+		sync.AddLink(func(r *syncronizer.Task) {
+			block, err := c.rpc.GetBlockByHeight(currentBlock)
+
+			if err != nil {
+				log.Errorf("Error getting block: %v", err)
+				c.state.syncing = false
+				sync.Abort()
+				return
+			}
+
+			abort := r.Link()
+
+			if abort {
+				log.Debug("Aborting routine")
+				return
+			}
+
+			c.syncBlock(block, sync)
 		})
 
 	}
@@ -55,23 +71,6 @@ func (c *Crawler) SyncLoop() {
 	}
 
 	c.state.syncing = false
-}
-
-func (c *Crawler) sync(height uint64, sync *syncronizer.Synchronizer, r *syncronizer.Routine) {
-	block, err := c.rpc.GetBlockByHeight(height)
-	if err != nil {
-		log.Errorf("Error getting block: %v", err)
-		c.state.syncing = false
-		sync.Abort()
-	}
-
-	abort := r.Link()
-
-	if abort {
-		return
-	}
-
-	c.syncBlock(block, sync)
 }
 
 func (c *Crawler) syncBlock(block models.Block, sync *syncronizer.Synchronizer) {

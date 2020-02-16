@@ -1,87 +1,88 @@
 package syncronizer
 
 import (
-	log "github.com/sirupsen/logrus"
+	"math/big"
 )
 
-func (s *Synchronizer) isAvailable() bool {
-	if len(s.routines) < s.maxRoutines {
-		return true
-	}
-	return false
-}
-
-func (s *Synchronizer) hangUntilFree() {
-	waitChan := make(chan int, 1)
+func (s *Synchronizer) startRoutineManager() {
+	// As we create routines with AddLink, and make them block at r.Link()
+	// this goroutine will receive tasks from the channel and continue each one
+	// wait for it to terminate and proceed to the next task
 
 	go func() {
 		for {
-			s.clean()
-			if s.isAvailable() {
-				waitChan <- len(s.routines)
+			select {
+			case _, open := <-s.abort:
+				if !open {
+					s.aborted = true
+				}
+				return
 			}
 		}
 	}()
 
-wait:
+	go func() {
+		for {
+			select {
+			case task := <-s.routines:
+
+				if s.aborted {
+					task.close()
+				} else {
+					task.release()
+					task.wait()
+					if s.aborted {
+						task.close()
+					}
+				}
+
+				if len(s.routines) == 0 {
+					s.quit <- 0
+					s.abort <- 0
+					return
+				}
+			}
+		}
+	}()
+}
+
+type Synchronizer struct {
+	routines    chan *Task
+	logChan     chan *logObject
+	quit, abort chan int
+	aborted     bool
+}
+
+func (s *Synchronizer) Log(blockNo uint64, txns, transfers, uncles int, minted *big.Int, supply *big.Int) {
+	s.logChan <- &logObject{
+		blockNo:        blockNo,
+		txns:           txns,
+		tokentransfers: transfers,
+		uncleNo:        uncles,
+		minted:         minted,
+		supply:         supply,
+	}
+}
+
+func (s *Synchronizer) Abort() {
+	close(s.abort)
+}
+
+func (s *Synchronizer) AddLink(body func(*Task)) {
+
+	nr := newTask(body)
+
+	go nr.run()
+
+	s.routines <- nr
+
+}
+
+func (s *Synchronizer) Finish() (closed bool) {
 	for {
 		select {
-		case d := <-waitChan:
-			log.Debugf("resuming, len routines %v", d)
-			break wait
+		case <-s.quit:
+			return s.aborted
 		}
 	}
-	return
-}
-
-func (s *Synchronizer) clean() {
-	for i := 0; i < len(s.routines); i++ {
-		if s.routines[i].isDone() || s.routines[i].isClosed() {
-			// shift left by 1
-			s.routines = s.routines[1:]
-		} else {
-			break
-		}
-	}
-}
-
-func (s *Synchronizer) lastRoutine() *Routine {
-	return s.routines[len(s.routines)-1]
-}
-
-func (s *Synchronizer) addRoutine(prevOut chan int) *Routine {
-	nr := newRoutine(prevOut)
-	s.quit = nr.out
-
-	s.routines = append(s.routines, nr)
-
-	return nr
-}
-
-// newLink creates a new routine, adds it to the slice and returns it to the caller
-
-func (s *Synchronizer) newLink() *Routine {
-
-	var newLink *Routine
-
-	if len(s.routines) == 0 {
-		firstChan := make(chan int, 1)
-		firstChan <- 0
-
-		newLink = s.addRoutine(firstChan)
-
-	} else {
-		//We save the value of lastRoutine before cleaning the slice
-		l := *(s.lastRoutine())
-
-		s.clean()
-
-		if !s.isAvailable() {
-			s.hangUntilFree()
-		}
-
-		newLink = s.addRoutine(l.out)
-
-	}
-	return newLink
 }

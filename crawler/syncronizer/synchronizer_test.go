@@ -49,12 +49,12 @@ func fetchBlock(h uint64) models.Block {
 }
 
 var testTable = []struct{ maxRoutines, routines int }{
-	{5, 100},
-	{10, 100},
-	{25, 100},
-	{50, 100},
-	{100, 100},
+	{5, 1000},
+	{10, 1000},
+	{25, 1000},
+	{50, 1000},
 	{100, 1000},
+	{100, 10000},
 }
 
 func SyncFunc(maxRoutines, routines int) bool {
@@ -62,8 +62,10 @@ func SyncFunc(maxRoutines, routines int) bool {
 	sync := syncronizer.NewSync(maxRoutines)
 
 	for i := 0; i < routines; i++ {
-		sync.AddLink(func(r *syncronizer.Routine) {
+		sync.AddLink(func(r *syncronizer.Task) {
+			r.Link()
 			time.Sleep(1 * time.Millisecond)
+
 		})
 	}
 
@@ -77,11 +79,12 @@ func BlockSyncFunc(maxRoutines, routines int) bool {
 	for i := 0; i < routines; i++ {
 		_ = fetchBlock(uint64(i))
 
-		sync.AddLink(func(r *syncronizer.Routine) {
+		sync.AddLink(func(r *syncronizer.Task) {
 			closed := r.Link()
 			if closed {
 				return
 			}
+			time.Sleep(1 * time.Millisecond)
 		})
 	}
 
@@ -93,7 +96,7 @@ func AsyncBlockSyncFunc(maxRoutines, routines int) bool {
 	sync := syncronizer.NewSync(maxRoutines)
 
 	for i := 0; i < routines; i++ {
-		sync.AddLink(func(r *syncronizer.Routine) {
+		sync.AddLink(func(r *syncronizer.Task) {
 
 			_ = fetchBlock(uint64(i))
 
@@ -126,7 +129,7 @@ func TestSyncAbort(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		str := "routine_" + strconv.FormatInt(int64(i), 10)
-		s.AddLink(func(r *syncronizer.Routine) {
+		s.AddLink(func(r *syncronizer.Task) {
 			r.Link()
 			if i == 50 {
 				time.Sleep(1 * time.Millisecond)
@@ -177,14 +180,14 @@ func TestSyncBlocks(t *testing.T) {
 		t.Logf("test n.%v with %v routines, %v maxRoutines took %v; val == %v", k, v.routines, v.maxRoutines, end, val)
 	}
 
-	for k, v := range testTable {
-		t.Logf("start test n.%v with %v routines, %v maxRoutines", k, v.routines, v.maxRoutines)
-
-		start := time.Now()
-		val := BlockSyncFunc(v.maxRoutines, v.routines)
-		end := time.Since(start)
-
-		t.Logf("test n.%v with %v routines, %v maxRoutines took %v; val == %v", k, v.routines, v.maxRoutines, end, val)
-	}
+	//for k, v := range testTable {
+	//	t.Logf("start test n.%v with %v routines, %v maxRoutines", k, v.routines, v.maxRoutines)
+	//
+	//	start := time.Now()
+	//	val := BlockSyncFunc(v.maxRoutines, v.routines)
+	//	end := time.Since(start)
+	//
+	//	t.Logf("test n.%v with %v routines, %v maxRoutines took %v; val == %v", k, v.routines, v.maxRoutines, end, val)
+	//}
 
 }
