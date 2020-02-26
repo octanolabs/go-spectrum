@@ -48,7 +48,7 @@ func (c *Crawler) SyncLoop() {
 			if err != nil {
 				log.Errorf("Error getting block: %v", err)
 				c.state.syncing = false
-				sync.Abort()
+				r.AbortSync()
 				return
 			}
 
@@ -59,7 +59,7 @@ func (c *Crawler) SyncLoop() {
 				return
 			}
 
-			c.syncBlock(block, sync)
+			c.syncBlock(block, r)
 		})
 
 	}
@@ -73,7 +73,7 @@ func (c *Crawler) SyncLoop() {
 	c.state.syncing = false
 }
 
-func (c *Crawler) syncBlock(block models.Block, sync *syncronizer.Synchronizer) {
+func (c *Crawler) syncBlock(block models.Block, task *syncronizer.Task) {
 
 	var (
 		uncles              = make([]models.Uncle, 0)
@@ -99,7 +99,7 @@ func (c *Crawler) syncBlock(block models.Block, sync *syncronizer.Synchronizer) 
 		// then we abort sync so that we can sync missing blocks
 		c.handleReorg(block)
 
-		sync.Abort()
+		task.AbortSync()
 		return
 	}
 
@@ -137,7 +137,7 @@ func (c *Crawler) syncBlock(block models.Block, sync *syncronizer.Synchronizer) 
 	// add required block info to cache for next iteration
 	c.blockCache.Add(block.Number, blockCache{Supply: supply, Hash: block.Hash})
 
-	sync.Log(block.Number, block.Txs, tokenTransfers, block.UncleNo, minted, supply)
+	c.log(block.Number, block.Txs, tokenTransfers, block.UncleNo, minted, supply)
 }
 
 func (c *Crawler) syncForkedBlock(b models.Block) {
@@ -284,4 +284,15 @@ func (c *Crawler) handleReorg(b models.Block) {
 
 	log.Warnf("Forked block %v synced and removed from blocks collection.", b.Number-1)
 
+}
+
+func (c *Crawler) log(blockNo uint64, txns, transfers, uncles int, minted *big.Int, supply *big.Int) {
+	c.logChan <- &logObject{
+		blockNo:        blockNo,
+		txns:           txns,
+		tokentransfers: transfers,
+		uncleNo:        uncles,
+		minted:         minted,
+		supply:         supply,
+	}
 }

@@ -12,7 +12,6 @@ func NewSync(maxRoutines int) *Synchronizer {
 	s := &Synchronizer{routines: make(chan *Task, maxRoutines), abortChan: make(chan *Task, 1), quitChan: make(chan int), nextChannel: make(chan int)}
 
 	s.startRoutineManager()
-	startLogger(s)
 
 	return s
 }

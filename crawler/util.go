@@ -2,6 +2,9 @@ package crawler
 
 import (
 	"math/big"
+	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/octanolabs/go-spectrum/models"
 )
@@ -40,6 +43,63 @@ func (l *logObject) clear() {
 	l.uncleNo = 0
 	l.minted = new(big.Int)
 	l.supply = new(big.Int)
+}
+
+func startLogger(c *Crawler) {
+
+	// Start logging goroutine
+
+	go func(ch chan *logObject) {
+		start := time.Now()
+		stats := &logObject{
+			0,
+			0,
+			0,
+			0,
+			0,
+			new(big.Int),
+			new(big.Int),
+		}
+	logLoop:
+		for {
+			select {
+			case lo, more := <-ch:
+				if more {
+					stats.add(lo)
+
+					if stats.blocks >= 1000 || time.Now().After(start.Add(time.Minute)) {
+						log.WithFields(log.Fields{
+							"blocks":       stats.blocks,
+							"head":         stats.blockNo,
+							"transactions": stats.txns,
+							"transfers":    stats.tokentransfers,
+							"uncles":       stats.uncleNo,
+							"minted":       stats.minted,
+							"supply":       stats.supply,
+							"took":         time.Since(start),
+						}).Info("Imported new chain segment")
+
+						stats.clear()
+						start = time.Now()
+					}
+				} else {
+					if stats.blocks > 0 {
+						log.WithFields(log.Fields{
+							"blocks":       stats.blocks,
+							"head":         stats.blockNo,
+							"transactions": stats.txns,
+							"transfers":    stats.tokentransfers,
+							"uncles":       stats.uncleNo,
+							"minted":       stats.minted,
+							"supply":       stats.supply,
+							"took":         time.Since(start),
+						}).Info("Imported new chain segment")
+					}
+					break logLoop
+				}
+			}
+		}
+	}(c.logChan)
 }
 
 // AccumulateRewards calculates the mining reward of the given block.

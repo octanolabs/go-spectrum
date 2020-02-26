@@ -1,9 +1,5 @@
 package syncronizer
 
-import (
-	"math/big"
-)
-
 func (s *Synchronizer) startRoutineManager() {
 	// As we create routines with AddLink, and make them block at r.Link()
 	// this goroutine will receive tasks from the channel and continue each one
@@ -68,22 +64,10 @@ func (s *Synchronizer) startRoutineManager() {
 
 type Synchronizer struct {
 	routines    chan *Task
-	logChan     chan *logObject
 	quitChan    chan int
 	abortChan   chan *Task
 	nextChannel chan int
 	Aborted     bool
-}
-
-func (s *Synchronizer) Log(blockNo uint64, txns, transfers, uncles int, minted *big.Int, supply *big.Int) {
-	s.logChan <- &logObject{
-		blockNo:        blockNo,
-		txns:           txns,
-		tokentransfers: transfers,
-		uncleNo:        uncles,
-		minted:         minted,
-		supply:         supply,
-	}
 }
 
 func (s *Synchronizer) AddLink(body func(*Task)) {

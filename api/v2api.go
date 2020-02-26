@@ -105,9 +105,9 @@ func ConvertJSONHTTPReq(r *http.Request) (io.ReadCloser, int64) {
 		length int64
 	)
 
-	for k, v := range legacyHandlers {
+	for k, handler := range legacyHandlers {
 		if k.MatchString(r.URL.Path) {
-			res, length = v(k, r.URL.Path)
+			res, length = handler(k, r.URL.Path)
 		}
 	}
 

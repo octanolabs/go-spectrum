@@ -32,6 +32,7 @@ type Crawler struct {
 	backend *storage.MongoDB
 	rpc     *rpc.RPCClient
 	cfg     *Config
+	logChan chan *logObject
 	state   struct {
 		syncing bool
 		reorg   bool
@@ -41,13 +42,15 @@ type Crawler struct {
 
 func New(db *storage.MongoDB, rpc *rpc.RPCClient, cfg *Config) *Crawler {
 	bc, _ := lru.New(blockCacheLimit)
-	return &Crawler{db, rpc, cfg, struct{ syncing, reorg bool }{false, false}, bc}
+	return &Crawler{db, rpc, cfg, make(chan *logObject), struct{ syncing, reorg bool }{false, false}, bc}
 }
 
 func (c *Crawler) Start() {
 	log.Println("Starting block Crawler")
 
 	err := c.rpc.Ping()
+
+	startLogger(c)
 
 	if err != nil {
 		if err == err.(*url.Error) {
