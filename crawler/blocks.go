@@ -9,7 +9,7 @@ import (
 
 	"github.com/octanolabs/go-spectrum/models"
 
-	"github.com/octanolabs/go-spectrum/crawler/syncronizer"
+	"github.com/octanolabs/go-spectrum/syncronizer"
 )
 
 type data struct {

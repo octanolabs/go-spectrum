@@ -14,7 +14,7 @@ import (
 
 	json "github.com/json-iterator/go"
 
-	"github.com/octanolabs/go-spectrum/crawler/syncronizer"
+	"github.com/octanolabs/go-spectrum/syncronizer"
 )
 
 var rpcClient *rpc.RPCClient
