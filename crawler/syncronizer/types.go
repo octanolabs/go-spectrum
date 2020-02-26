@@ -9,7 +9,7 @@ package syncronizer
 // All routines should be linked together with syncBlock.AddLink()
 
 func NewSync(maxRoutines int) *Synchronizer {
-	s := &Synchronizer{routines: make(chan *Task, maxRoutines), abort: make(chan int), quit: make(chan int)}
+	s := &Synchronizer{routines: make(chan *Task, maxRoutines), abortChan: make(chan *Task, 1), quitChan: make(chan int), nextChannel: make(chan int)}
 
 	s.startRoutineManager()
 	startLogger(s)

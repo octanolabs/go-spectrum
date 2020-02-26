@@ -1,20 +1,47 @@
 package syncronizer
 
 type Task struct {
-	hang, done chan int
-	fn         func()
+	ranInit, hang, done chan int
+	fn                  func()
+	abort               bool
+	abortFunc           func()
+	activeSync          *Synchronizer
 }
 
-func (r *Task) Link() (closed bool) {
-	closed = r.receive()
+// Link should be called exactly once inside every routine. even after an abort
+
+func (r *Task) Link() (close bool) {
+	r.ranInit <- 0
+	close = r.receive()
 	return
+
+}
+
+func (r *Task) AbortSync() {
+	r.activeSync.abortChan <- r
+}
+
+func (r *Task) stop() {
+	close(r.hang)
+}
+
+func (r *Task) closeNext() {
+	//fmt.Println("closing next routine")
+	r.abortFunc()
+}
+
+func (r *Task) wait() {
+	//fmt.Println("Waiting for task to finish")
+	<-r.ranInit
+	//fmt.Println("Finished task")
+
 }
 
 func (r *Task) release() {
 	r.hang <- 0
 }
 
-func (r *Task) wait() {
+func (r *Task) finish() {
 	<-r.done
 }
 
@@ -29,19 +56,16 @@ func (r *Task) receive() (closed bool) {
 			if more {
 				return false
 			} else {
+				r.closeNext()
 				return true
 			}
 		}
 	}
 }
 
-func (r *Task) close() {
-	close(r.hang)
-}
+func newTask(s *Synchronizer, fn func(*Task), hang chan int) *Task {
 
-func newTask(fn func(*Task)) *Task {
-
-	r := &Task{make(chan int), make(chan int), nil}
+	r := &Task{make(chan int, 1), hang, make(chan int), nil, false, nil, s}
 
 	rFn := func() {
 		fn(r)

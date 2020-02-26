@@ -48,13 +48,13 @@ func fetchBlock(h uint64) models.Block {
 	return block
 }
 
-var testTable = []struct{ maxRoutines, routines int }{
-	{5, 1000},
-	{10, 1000},
-	{25, 1000},
-	{50, 1000},
-	{100, 1000},
-	{100, 10000},
+var testTable = []struct{ maxRoutines, routines, abortAt int }{
+	{5, 100, 50},
+	{10, 100, 50},
+	{25, 100, 50},
+	{50, 100, 50},
+	{100, 100, 50},
+	{100, 1000, 500},
 }
 
 func SyncFunc(maxRoutines, routines int) bool {
@@ -70,6 +70,84 @@ func SyncFunc(maxRoutines, routines int) bool {
 	}
 
 	return sync.Finish()
+}
+
+func AbortBeforeSyncFunc(t *testing.T, maxRoutines, routines, abortAt int) {
+
+	sync := syncronizer.NewSync(maxRoutines)
+
+	for i := 0; i < routines; i++ {
+		it := i
+		sync.AddLink(func(r *syncronizer.Task) {
+
+			//simulate io op to run before linking
+			_ = fetchBlock(uint64(i))
+
+			if it == abortAt {
+				//fmt.Println("routine_"+strconv.FormatInt(int64(it), 10), "closing")
+				r.AbortSync()
+				//fmt.Println("routine_"+strconv.FormatInt(int64(it), 10), " should've closed")
+
+			}
+
+			closed := r.Link()
+
+			if closed {
+				return
+			}
+
+			time.Sleep(1 * time.Millisecond)
+
+		})
+
+	}
+
+	f := sync.Finish()
+
+	if f {
+		t.Log("Sync Aborted successfully")
+	} else {
+		t.Fatalf("failed to abort sync")
+	}
+
+}
+
+func AbortAfterSyncFunc(t *testing.T, maxRoutines, routines, abortAt int) {
+
+	sync := syncronizer.NewSync(maxRoutines)
+
+	for i := 0; i < routines; i++ {
+		it := i
+		sync.AddLink(func(r *syncronizer.Task) {
+			closed := r.Link()
+
+			if closed {
+				return
+			}
+
+			//simulate op to run after linking
+			//_ = fetchBlock(uint64(i))
+
+			if it == abortAt {
+				//fmt.Println("routine_"+strconv.FormatInt(int64(it), 10), "closing")
+				r.AbortSync()
+				//fmt.Println("routine_"+strconv.FormatInt(int64(it), 10), " should close")
+				return
+			}
+
+			time.Sleep(1 * time.Millisecond)
+
+		})
+	}
+
+	f := sync.Finish()
+
+	if f {
+		t.Log("Sync Aborted successfully")
+	} else {
+		t.Fatalf("failed to abort sync")
+	}
+
 }
 
 func BlockSyncFunc(maxRoutines, routines int) bool {
@@ -104,6 +182,7 @@ func AsyncBlockSyncFunc(maxRoutines, routines int) bool {
 			if closed {
 				return
 			}
+			time.Sleep(time.Millisecond)
 		})
 	}
 
@@ -113,43 +192,61 @@ func AsyncBlockSyncFunc(maxRoutines, routines int) bool {
 func TestSync(t *testing.T) {
 
 	for k, v := range testTable {
-		t.Logf("start test n.%v with %v routines, %v maxRoutines", k, v.routines, v.maxRoutines)
+		t.Run("test_"+strconv.FormatInt(int64(k), 10), func(t *testing.T) {
+			t.Logf("start test n.%v with %v routines, %v maxRoutines", k, v.routines, v.maxRoutines)
 
-		start := time.Now()
-		val := SyncFunc(v.maxRoutines, v.routines)
-		end := time.Since(start)
+			start := time.Now()
+			val := SyncFunc(v.maxRoutines, v.routines)
+			end := time.Since(start)
 
-		t.Logf("test n.%v with %v routines, %v maxRoutines took %v; val == %v", k, v.routines, v.maxRoutines, end, val)
+			t.Logf("test n.%v with %v routines, %v maxRoutines took %v; aborted %v", k, v.routines, v.maxRoutines, end, val)
+		})
 	}
 
 }
 
 func TestSyncAbort(t *testing.T) {
-	s := syncronizer.NewSync(10)
+	for k, v := range testTable {
+		t.Run("test_"+strconv.FormatInt(int64(k), 10), func(t *testing.T) {
+			t.Logf("start test n.%v with %v routines, %v maxRoutines", k, v.routines, v.maxRoutines)
 
-	for i := 0; i < 100; i++ {
-		str := "routine_" + strconv.FormatInt(int64(i), 10)
-		s.AddLink(func(r *syncronizer.Task) {
-			r.Link()
-			if i == 50 {
-				time.Sleep(1 * time.Millisecond)
-				t.Log(str, "should close")
-				s.Abort()
-			} else {
-				time.Sleep(1 * time.Millisecond)
+			start := time.Now()
+			AbortBeforeSyncFunc(t, v.maxRoutines, v.routines, v.abortAt)
+			end := time.Since(start)
 
-				t.Log(str)
-			}
+			start1 := time.Now()
+			AbortAfterSyncFunc(t, v.maxRoutines, v.routines, v.abortAt)
+			end1 := time.Since(start1)
+
+			t.Logf("test n.%v with %v routines, %v maxRoutines (before took %v, after took %v)", k, v.routines, v.maxRoutines, end, end1)
+		})
+	}
+}
+
+func TestSyncBlocks(t *testing.T) {
+
+	for k, v := range testTable {
+		t.Run("test_"+strconv.FormatInt(int64(k), 10), func(t *testing.T) {
+			t.Logf("start test n.%v with %v routines, %v maxRoutines", k, v.routines, v.maxRoutines)
+
+			start := time.Now()
+			val := AsyncBlockSyncFunc(v.maxRoutines, v.routines)
+			end := time.Since(start)
+
+			t.Logf("test n.%v with %v routines, %v maxRoutines took %v; val == %v", k, v.routines, v.maxRoutines, end, val)
 		})
 	}
 
-	closed := s.Finish()
+	//for k, v := range testTable {
+	//	t.Logf("start test n.%v with %v routines, %v maxRoutines", k, v.routines, v.maxRoutines)
+	//
+	//	start := time.Now()
+	//	val := BlockSyncFunc(v.maxRoutines, v.routines)
+	//	end := time.Since(start)
+	//
+	//	t.Logf("test n.%v with %v routines, %v maxRoutines took %v; val == %v", k, v.routines, v.maxRoutines, end, val)
+	//}
 
-	if closed {
-		t.Logf("syncBlock aborted successfully")
-	} else {
-		t.Errorf("Error, sync not aborted")
-	}
 }
 
 func BenchmarkSync(b *testing.B) {
@@ -166,28 +263,4 @@ func BenchmarkSync(b *testing.B) {
 			}
 		})
 	}
-}
-
-func TestSyncBlocks(t *testing.T) {
-
-	for k, v := range testTable {
-		t.Logf("start test n.%v with %v routines, %v maxRoutines", k, v.routines, v.maxRoutines)
-
-		start := time.Now()
-		val := AsyncBlockSyncFunc(v.maxRoutines, v.routines)
-		end := time.Since(start)
-
-		t.Logf("test n.%v with %v routines, %v maxRoutines took %v; val == %v", k, v.routines, v.maxRoutines, end, val)
-	}
-
-	//for k, v := range testTable {
-	//	t.Logf("start test n.%v with %v routines, %v maxRoutines", k, v.routines, v.maxRoutines)
-	//
-	//	start := time.Now()
-	//	val := BlockSyncFunc(v.maxRoutines, v.routines)
-	//	end := time.Since(start)
-	//
-	//	t.Logf("test n.%v with %v routines, %v maxRoutines took %v; val == %v", k, v.routines, v.maxRoutines, end, val)
-	//}
-
 }
