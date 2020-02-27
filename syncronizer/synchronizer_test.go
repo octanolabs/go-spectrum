@@ -1,4 +1,4 @@
-package syncronizer_test
+package syncronizer
 
 import (
 	"os"
@@ -13,8 +13,6 @@ import (
 	"github.com/octanolabs/go-spectrum/rpc"
 
 	json "github.com/json-iterator/go"
-
-	"github.com/octanolabs/go-spectrum/syncronizer"
 )
 
 var rpcClient *rpc.RPCClient
@@ -59,10 +57,10 @@ var testTable = []struct{ maxRoutines, routines, abortAt int }{
 
 func SyncFunc(maxRoutines, routines int) bool {
 
-	sync := syncronizer.NewSync(maxRoutines)
+	sync := NewSync(maxRoutines)
 
 	for i := 0; i < routines; i++ {
-		sync.AddLink(func(r *syncronizer.Task) {
+		sync.AddLink(func(r *Task) {
 			r.Link()
 			time.Sleep(1 * time.Millisecond)
 
@@ -74,11 +72,11 @@ func SyncFunc(maxRoutines, routines int) bool {
 
 func AbortBeforeSyncFunc(t *testing.T, maxRoutines, routines, abortAt int) {
 
-	sync := syncronizer.NewSync(maxRoutines)
+	sync := NewSync(maxRoutines)
 
 	for i := 0; i < routines; i++ {
 		it := i
-		sync.AddLink(func(r *syncronizer.Task) {
+		sync.AddLink(func(r *Task) {
 
 			//simulate io op to run before linking
 			_ = fetchBlock(uint64(i))
@@ -114,11 +112,11 @@ func AbortBeforeSyncFunc(t *testing.T, maxRoutines, routines, abortAt int) {
 
 func AbortAfterSyncFunc(t *testing.T, maxRoutines, routines, abortAt int) {
 
-	sync := syncronizer.NewSync(maxRoutines)
+	sync := NewSync(maxRoutines)
 
 	for i := 0; i < routines; i++ {
 		it := i
-		sync.AddLink(func(r *syncronizer.Task) {
+		sync.AddLink(func(r *Task) {
 			closed := r.Link()
 
 			if closed {
@@ -152,12 +150,12 @@ func AbortAfterSyncFunc(t *testing.T, maxRoutines, routines, abortAt int) {
 
 func BlockSyncFunc(maxRoutines, routines int) bool {
 
-	sync := syncronizer.NewSync(maxRoutines)
+	sync := NewSync(maxRoutines)
 
 	for i := 0; i < routines; i++ {
 		_ = fetchBlock(uint64(i))
 
-		sync.AddLink(func(r *syncronizer.Task) {
+		sync.AddLink(func(r *Task) {
 			closed := r.Link()
 			if closed {
 				return
@@ -171,10 +169,10 @@ func BlockSyncFunc(maxRoutines, routines int) bool {
 
 func AsyncBlockSyncFunc(maxRoutines, routines int) bool {
 
-	sync := syncronizer.NewSync(maxRoutines)
+	sync := NewSync(maxRoutines)
 
 	for i := 0; i < routines; i++ {
-		sync.AddLink(func(r *syncronizer.Task) {
+		sync.AddLink(func(r *Task) {
 
 			_ = fetchBlock(uint64(i))
 
