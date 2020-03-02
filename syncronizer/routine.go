@@ -1,5 +1,7 @@
 package syncronizer
 
+import log "github.com/sirupsen/logrus"
+
 type Task struct {
 	ranInit, hang, done chan int
 	fn                  func()
@@ -8,7 +10,7 @@ type Task struct {
 	activeSync          *Synchronizer
 }
 
-// Link should be called exactly once inside every routine. even after an abort
+// Link should be called exactly once inside every task.
 
 func (r *Task) Link() (close bool) {
 	r.ranInit <- 0
@@ -26,14 +28,11 @@ func (r *Task) stop() {
 }
 
 func (r *Task) closeNext() {
-	//fmt.Println("closing next routine")
 	r.abortFunc()
 }
 
 func (r *Task) wait() {
-	//fmt.Println("Waiting for task to finish")
 	<-r.ranInit
-	//fmt.Println("Finished task")
 
 }
 
@@ -65,12 +64,17 @@ func (r *Task) receive() (closed bool) {
 
 func newTask(s *Synchronizer, fn func(*Task), hang chan int) *Task {
 
-	r := &Task{make(chan int, 1), hang, make(chan int), nil, false, nil, s}
+	// Buffered channels so hooks don't block when they're not supposed to
+
+	r := &Task{make(chan int, 1), hang, make(chan int, 1), nil, false, nil, s}
 
 	rFn := func() {
 		fn(r)
 
+		log.Debugln("ROUTINE: sending done signal")
+
 		r.done <- 0
+		log.Debugln("ROUTINE: sent done signal")
 	}
 
 	r.fn = rFn

@@ -1,9 +1,11 @@
 package crawler
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
-	stdSync "sync"
+	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -12,14 +14,10 @@ import (
 	"github.com/octanolabs/go-spectrum/syncronizer"
 )
 
-type data struct {
-	avgGasPrice, txFees *big.Int
-	tokentransfers      int
-	stdSync.Mutex
-}
-
 func (c *Crawler) SyncLoop() {
 	var currentBlock uint64
+
+	start := time.Now()
 
 	// get db head
 	indexHead, err := c.backend.LatestBlock()
@@ -35,15 +33,18 @@ func (c *Crawler) SyncLoop() {
 		log.Errorf("Error getting block number: %v", err)
 	}
 
-	sync := syncronizer.NewSync(c.cfg.MaxRoutines)
+	taskChain := syncronizer.NewSync(c.cfg.MaxRoutines)
 
 	c.state.syncing = true
 	currentBlock = indexHead.Number + 1
 
 	for ; currentBlock <= chainHead; currentBlock++ {
 
-		sync.AddLink(func(r *syncronizer.Task) {
-			block, err := c.rpc.GetBlockByHeight(currentBlock)
+		// capture blockNumber in b variable
+		b := currentBlock
+
+		taskChain.AddLink(func(r *syncronizer.Task) {
+			block, err := c.rpc.GetBlockByHeight(b)
 
 			if err != nil {
 				log.Errorf("Error getting block: %v", err)
@@ -64,10 +65,12 @@ func (c *Crawler) SyncLoop() {
 
 	}
 
-	abort := sync.Finish()
+	abort := taskChain.Finish()
 
 	if abort {
-		log.Error("Aborted sync")
+		log.Error("aborted taskChain")
+	} else {
+		log.Infof("Terminated taskChain in %v", time.Since(start))
 	}
 
 	c.state.syncing = false
@@ -88,6 +91,9 @@ func (c *Crawler) syncBlock(block models.Block, task *syncronizer.Task) {
 
 	if err != nil {
 		log.Errorf("Error getting previous block: %v", err)
+
+		task.AbortSync()
+		return
 	}
 
 	pSupply = prevBlock.Supply
@@ -165,88 +171,112 @@ func (c *Crawler) syncForkedBlock(b models.Block) {
 	}).Warn("Synced forked block")
 }
 
-func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uint64) (*big.Int, *big.Int, int) {
+type data struct {
+	gasPrice, txFees *big.Int
+	tokenTransfers   int
+	sync.Mutex
+}
 
-	var twg stdSync.WaitGroup
+func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uint64) (avgGasPrice, txFees *big.Int, tokenTransfers int) {
 
 	data := &data{
-		avgGasPrice:    big.NewInt(0),
+		gasPrice:       big.NewInt(0),
 		txFees:         big.NewInt(0),
-		tokentransfers: 0,
+		tokenTransfers: 0,
 	}
 
-	twg.Add(len(txs))
+	// maxRoutines equal to 2 times the number of txs to account for possible token transfers
+	txSync := syncronizer.NewSync(len(txs) * 2)
 
-	for _, v := range txs {
-		go c.processTransaction(v, timestamp, data, &twg)
+	log.Debugf("Starting sync with %v txs", len(txs))
+
+	for _, val := range txs {
+
+		// Capture value of rawTx
+		rt := val
+
+		tx := rt.Convert()
+
+		// Set timestamp here, if it's a token transfer the field needs to be present
+		tx.Timestamp = timestamp
+
+		log.Debugf("Syncing %v", tx.Hash)
+
+		txSync.AddLink(func(t *syncronizer.Task) {
+
+			receipt, err := c.rpc.GetTxReceipt(tx.Hash)
+			if err != nil {
+				log.Errorf("Error getting tx receipt: %v", err)
+			}
+
+			log.Debugln("Got here before link")
+
+			closed := t.Link()
+
+			log.Debugln("Got here after link")
+
+			if closed {
+				return
+			}
+
+			c.processTransaction(tx, receipt, data)
+
+			log.Debugln("Got here before end")
+		})
+
+		// If tx is a token transfer we add another link right after
+
+		if tx.IsTokenTransfer() {
+
+			data.tokenTransfers++
+			txSync.AddLink(func(task *syncronizer.Task) {
+
+				transfer := tx.GetTokenTransfer()
+
+				closed := task.Link()
+
+				if closed {
+					return
+				}
+
+				c.processTokenTransfer(transfer)
+			})
+		}
+
 	}
-	twg.Wait()
-	return data.avgGasPrice.Div(data.avgGasPrice, big.NewInt(int64(len(txs)))), data.txFees, data.tokentransfers
+
+	txSync.Finish()
+
+	return data.gasPrice.Div(data.gasPrice, big.NewInt(int64(len(txs)))), data.txFees, data.tokenTransfers
 }
 
-func (c *Crawler) processTransaction(rt models.RawTransaction, timestamp uint64, data *data, twg *stdSync.WaitGroup) {
+func (c *Crawler) processTransaction(tx models.Transaction, receipt models.TxReceipt, data *data) {
 
-	v := rt.Convert()
+	txGasPrice := big.NewInt(0).SetUint64(tx.GasPrice)
 
-	// Create a channel
+	data.gasPrice.Add(data.gasPrice, txGasPrice)
 
-	ch := make(chan struct{}, 1)
+	txFees := big.NewInt(0).Mul(txGasPrice, big.NewInt(0).SetUint64(receipt.GasUsed))
 
-	receipt, err := c.rpc.GetTxReceipt(v.Hash)
-	if err != nil {
-		log.Errorf("Error getting tx receipt: %v", err)
-	}
+	data.txFees.Add(data.txFees, txFees)
 
-	data.Lock()
-	data.avgGasPrice.Add(data.avgGasPrice, big.NewInt(0).SetUint64(v.GasPrice))
-	data.Unlock()
+	tx.GasUsed = receipt.GasUsed
+	tx.ContractAddress = receipt.ContractAddress
+	tx.Logs = receipt.Logs
 
-	gasprice := big.NewInt(0).SetUint64(v.GasPrice)
-
-	data.Lock()
-	data.txFees.Add(data.txFees, big.NewInt(0).Mul(gasprice, big.NewInt(0).SetUint64(receipt.GasUsed)))
-	data.Unlock()
-
-	v.Timestamp = timestamp
-	v.GasUsed = receipt.GasUsed
-	v.ContractAddress = receipt.ContractAddress
-	v.Logs = receipt.Logs
-
-	if v.IsTokenTransfer() {
-		// Here we fork to a goroutine to process and insert the token transfer.
-		// We use the channel to block the function util the token transfer is inserted.
-		data.Lock()
-		data.tokentransfers++
-		data.Unlock()
-		go c.processTokenTransfer(v, ch)
-	}
-
-	err = c.backend.AddTransaction(&v)
+	err := c.backend.AddTransaction(&tx)
 	if err != nil {
 		log.Errorf("Error inserting tx into backend: %#v", err)
-
 	}
 
-	if v.IsTokenTransfer() {
-		<-ch
-	}
-	twg.Done()
 }
 
-func (c *Crawler) processTokenTransfer(v models.Transaction, ch chan struct{}) {
+func (c *Crawler) processTokenTransfer(transfer *models.TokenTransfer) {
 
-	tktx := v.GetTokenTransfer()
-
-	tktx.BlockNumber = v.BlockNumber
-	tktx.Hash = v.Hash
-	tktx.Timestamp = v.Timestamp
-
-	err := c.backend.AddTokenTransfer(&tktx)
+	err := c.backend.AddTokenTransfer(transfer)
 	if err != nil {
 		log.Errorf("Error processing token transfer into backend: %v", err)
 	}
-
-	ch <- struct{}{}
 
 }
 
@@ -260,10 +290,11 @@ func (c *Crawler) getPreviousBlock(blockNumber uint64) (blockCache, error) {
 		return cached.(blockCache), nil
 	} else {
 		// parent block not cached, fetch from db
-		log.Warnf("block %v not found in cache, retrieving from database", b)
+		log.Warnf("block %v not found in cache (%v), retrieving from database", b, c.blockCache)
+
 		latestBlock, err := c.backend.BlockByNumber(b)
 		if err != nil {
-			return blockCache{}, err
+			return blockCache{}, errors.New("block %v not found in database")
 		}
 		sprev, _ := new(big.Int).SetString(latestBlock.Supply, 10)
 		return blockCache{sprev, latestBlock.Hash}, nil

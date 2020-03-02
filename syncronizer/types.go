@@ -1,17 +1,30 @@
 package syncronizer
 
-//TODO: scrap everything, try with buffered channel
-// if taks are kept inside buffered channel, we loose the ability to
-// abort sync, as we can't routine.close() so easily
+import "log"
 
 // Returns a new sync object with no routines
-// Routines should be linked inside the routine function body via Routines.Link()
-// All routines should be linked together with syncBlock.AddLink()
+// Tasks should be linked inside the task function body via Task.Link()
+// After syncing all tasks, it is necessary to call sync.Finish() to let
+// the syncronizer know it can quit
 
 func NewSync(maxRoutines int) *Synchronizer {
-	s := &Synchronizer{routines: make(chan *Task, maxRoutines), abortChan: make(chan *Task, 1), quitChan: make(chan int), nextChannel: make(chan int)}
 
-	s.startRoutineManager()
+	if maxRoutines == 0 {
+		log.Fatalf("Error, cannot start sync with 0 maxroutines, should be atleast 1")
+	}
+
+	s := &Synchronizer{}
+
+	s.routines = make(chan *Task, maxRoutines)
+
+	// Buffered channels so sends on these don't block
+	s.abortChan = make(chan *Task, 1)
+	s.quitChan = make(chan int, 1)
+
+	// Unbuffered so this blocks
+	s.nextChannel = make(chan int)
+
+	s.startTaskHandler()
 
 	return s
 }

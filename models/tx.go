@@ -90,7 +90,7 @@ func (tx *Transaction) IsTokenTransfer() bool {
 	}
 }
 
-func (tx *Transaction) GetTokenTransfer() TokenTransfer {
+func (tx *Transaction) GetTokenTransfer() *TokenTransfer {
 	var params []string
 
 	method := tx.Input[:10]
@@ -105,47 +105,56 @@ func (tx *Transaction) GetTokenTransfer() TokenTransfer {
 		}
 	} else {
 		log.Errorf("Error processing token transfer: input length is not standard: len: %v", len(tx.Input))
-		return TokenTransfer{}
+		return &TokenTransfer{}
+	}
+
+	transfer := &TokenTransfer{
+		BlockNumber: tx.BlockNumber,
+		Hash:        tx.Hash,
+		Timestamp:   tx.Timestamp,
 	}
 
 	switch method {
 	case "0xa9059cbb": // transfer
-		return TokenTransfer{
-			From:     tx.From,
-			To:       util.InputParamsToAddress(params[0]),
-			Value:    util.DecodeValueHex(params[1]),
-			Contract: tx.To,
-			Method:   "transfer",
-		}
+		transfer.From = tx.From
+		transfer.To = util.InputParamsToAddress(params[0])
+		transfer.Value = util.DecodeValueHex(params[1])
+		transfer.Contract = tx.To
+		transfer.Method = "transfer"
+
+		return transfer
 
 	case "0x23b872dd": // transferFrom
-		return TokenTransfer{
-			From:     util.InputParamsToAddress(params[0]),
-			To:       util.InputParamsToAddress(params[1]),
-			Value:    util.DecodeValueHex(params[2]),
-			Contract: tx.To,
-			Method:   "transferFrom",
-		}
+		transfer.From = util.InputParamsToAddress(params[0])
+		transfer.To = util.InputParamsToAddress(params[1])
+		transfer.Value = util.DecodeValueHex(params[2])
+		transfer.Contract = tx.To
+		transfer.Method = "transferFrom"
+
+		return transfer
 
 	case "0x6ea056a9": // sweep
-		return TokenTransfer{
-			From:     tx.To,
-			To:       tx.From,
-			Value:    util.DecodeValueHex(params[1]),
-			Contract: util.InputParamsToAddress(params[0]),
-			Method:   "sweep",
-		}
+		transfer.From = tx.To
+		transfer.To = tx.From
+		transfer.Value = util.DecodeValueHex(params[1])
+		transfer.Contract = util.InputParamsToAddress(params[0])
+		transfer.Method = "sweep"
+
+		return transfer
 
 	case "0x40c10f19": // mint
-		return TokenTransfer{
-			From:     "0x0000000000000000000000000000000000000000",
-			To:       util.InputParamsToAddress(params[0]),
-			Value:    util.DecodeValueHex(params[1]),
-			Contract: tx.To,
-			Method:   "mint",
-		}
+		transfer.From = "0x0000000000000000000000000000000000000000"
+		transfer.To = util.InputParamsToAddress(params[0])
+		transfer.Value = util.DecodeValueHex(params[1])
+		transfer.Contract = tx.To
+		transfer.Method = "mint"
+
+		return transfer
 	default:
-		return TokenTransfer{Method: "unkown", Data: tx.Input}
+		transfer.Method = "unknown"
+		transfer.Data = tx.Input
+
+		return transfer
 	}
 
 }

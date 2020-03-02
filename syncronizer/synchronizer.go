@@ -1,78 +1,81 @@
 package syncronizer
 
-func (s *Synchronizer) startRoutineManager() {
-	// As we create routines with AddLink, and make them block at r.Link()
-	// this goroutine will receive tasks from the channel and continue each one
-	// finish for it to terminate and proceed to the next task
+import log "github.com/sirupsen/logrus"
+
+func (s *Synchronizer) startTaskHandler() {
+
+	// As tasks are created with AddLink, and block at t.Link(), this goroutine will
+	// receive them from the channel; it waits until the tasks calls t.Link(),
+	// resumes execution and waits for it to finish, doing this for each task until
+	// the channel is empty or one of the tasks calls t.Abort()
 
 	go func() {
-		//var i int
+		var abort bool
 	loop:
 		for {
 			select {
 			case task := <-s.routines:
+
+				log.Debugln("SYNCRONIZER: waiting for task to run pre fetch")
 				task.wait()
+				log.Debugln("SYNCRONIZER: waited task")
 
-				var b = s.didAbort(task)
+				abort = s.didAbort(task)
 
-				//fmt.Println(i, " did abort ", b)
-
-				if b {
-					s.Aborted = true
-
-					//fmt.Println("aborting")
-
+				if abort {
+					s.aborted = true
 					task.stop()
-
-					//fmt.Println("Aborted")
-
 					break loop
 				}
 
-				//fmt.Println("task")
+				log.Debugln("SYNCRONIZER: releasing task")
 
 				task.release()
+
+				log.Debugln("SYNCRONIZER: waiting for done signal")
 				task.finish()
+				log.Debugln("SYNCRONIZER: recv'd done signal")
 
-				var c = s.didAbort(task)
+				abort = s.didAbort(task)
 
-				//fmt.Println(i, " did abort after ", c)
-
-				if c {
-					s.Aborted = true
-
-					//fmt.Println("aborting after")
-
+				if abort {
+					s.aborted = true
 					task.closeNext()
-
-					//fmt.Println("Aborted after")
-
 					break loop
 				}
 
-				if len(s.routines) == 0 {
+			// Sometimes, if we add n tasks in a loop, the first one will be executed right away
+			// (go scheduler quirks??) before others are inserted, so the number of items in the channel
+			// can't be relied upon to quit the taskHandler;
+			// s.shouldQuit() will return true only when s.Finish() has been called
+			// and the default case will only if there are no more task to receive (len(s.routines) == 0)
+
+			default:
+				if s.shouldQuit() {
 					s.quit()
 					break loop
 				}
-				//i++
 			}
 		}
-		//fmt.Println("finish sync")
+		if s.aborted {
+			s.flushTasks()
+		}
 		return
 	}()
 }
 
 type Synchronizer struct {
-	routines    chan *Task
-	quitChan    chan int
-	abortChan   chan *Task
-	nextChannel chan int
-	Aborted     bool
+	routines, abortChan   chan *Task
+	quitChan, nextChannel chan int
+	aborted               bool
 }
+
+// AddLink creates a new task with the function body it's provided, sets up hooks and
+// queues it for execution
 
 func (s *Synchronizer) AddLink(body func(*Task)) {
 
-	if s.Aborted {
+	if s.aborted {
 		return
 	}
 
@@ -87,21 +90,15 @@ func (s *Synchronizer) AddLink(body func(*Task)) {
 
 	go nr.run()
 
-loop:
-	for {
-		select {
-		case s.routines <- nr:
-			break loop
-		default:
-			if s.Aborted {
-				break loop
-			}
-		}
-	}
+	s.routines <- nr
 
 }
 
+// Finish hangs until all tasks have completed executions, and there are no more tasks
+// or if the sync was aborted
+
 func (s *Synchronizer) Finish() (closed bool) {
+	s.quitChan <- 0
 	for {
 		select {
 		case _, more := <-s.nextChannel:
@@ -117,6 +114,18 @@ func (s *Synchronizer) quit() {
 	s.nextChannel <- 0
 }
 
+func (s *Synchronizer) shouldQuit() bool {
+	select {
+	case <-s.quitChan:
+		return true
+	default:
+		return false
+	}
+}
+
+// Check abortChan if any task sent an abort signal
+// returns true if it is equal to the one that called the method
+
 func (s *Synchronizer) didAbort(t *Task) bool {
 	select {
 	case closedTask := <-s.abortChan:
@@ -129,4 +138,23 @@ func (s *Synchronizer) didAbort(t *Task) bool {
 	default:
 		return false
 	}
+}
+
+// Sometimes, if there is an abort when len(s.routines) == maxRoutines, and there's a call to
+// AddLink stuck on inserting a task, everything blocks. To avoid that, after aborting a sync
+// we flush tasks from the channel so AddLink can send task and return
+
+// Todo: maybe it's quicker if we just remove one task as all possible calls to AddLink would return immediately
+
+func (s *Synchronizer) flushTasks() {
+loop:
+	for {
+		select {
+		case <-s.routines:
+			if len(s.routines) == 0 {
+				break loop
+			}
+		}
+	}
+	return
 }

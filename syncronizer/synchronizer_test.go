@@ -47,6 +47,7 @@ func fetchBlock(h uint64) models.Block {
 }
 
 var testTable = []struct{ maxRoutines, routines, abortAt int }{
+	{1, 100, 50},
 	{5, 100, 50},
 	{10, 100, 50},
 	{25, 100, 50},
@@ -70,6 +71,32 @@ func SyncFunc(maxRoutines, routines int) bool {
 	return sync.Finish()
 }
 
+func NestedSyncFunc(maxRoutines, routines int) bool {
+
+	sync := NewSync(maxRoutines)
+
+	for i := 0; i < routines; i++ {
+		sync.AddLink(func(r *Task) {
+			r.Link()
+			time.Sleep(1 * time.Millisecond)
+
+			ns := NewSync(10)
+
+			for i := 0; i < 20; i++ {
+				ns.AddLink(func(t *Task) {
+					t.Link()
+					time.Sleep(1 * time.Millisecond)
+				})
+			}
+
+			ns.Finish()
+
+		})
+	}
+
+	return sync.Finish()
+}
+
 func AbortBeforeSyncFunc(t *testing.T, maxRoutines, routines, abortAt int) {
 
 	sync := NewSync(maxRoutines)
@@ -77,9 +104,6 @@ func AbortBeforeSyncFunc(t *testing.T, maxRoutines, routines, abortAt int) {
 	for i := 0; i < routines; i++ {
 		it := i
 		sync.AddLink(func(r *Task) {
-
-			//simulate io op to run before linking
-			_ = fetchBlock(uint64(i))
 
 			if it == abortAt {
 				//fmt.Println("routine_"+strconv.FormatInt(int64(it), 10), "closing")
@@ -103,7 +127,7 @@ func AbortBeforeSyncFunc(t *testing.T, maxRoutines, routines, abortAt int) {
 	f := sync.Finish()
 
 	if f {
-		t.Log("Sync Aborted successfully")
+		t.Log("Sync aborted successfully")
 	} else {
 		t.Fatalf("failed to abort sync")
 	}
@@ -123,13 +147,8 @@ func AbortAfterSyncFunc(t *testing.T, maxRoutines, routines, abortAt int) {
 				return
 			}
 
-			//simulate op to run after linking
-			//_ = fetchBlock(uint64(i))
-
 			if it == abortAt {
-				//fmt.Println("routine_"+strconv.FormatInt(int64(it), 10), "closing")
 				r.AbortSync()
-				//fmt.Println("routine_"+strconv.FormatInt(int64(it), 10), " should close")
 				return
 			}
 
@@ -141,7 +160,7 @@ func AbortAfterSyncFunc(t *testing.T, maxRoutines, routines, abortAt int) {
 	f := sync.Finish()
 
 	if f {
-		t.Log("Sync Aborted successfully")
+		t.Log("Sync aborted successfully")
 	} else {
 		t.Fatalf("failed to abort sync")
 	}
@@ -195,6 +214,22 @@ func TestSync(t *testing.T) {
 
 			start := time.Now()
 			val := SyncFunc(v.maxRoutines, v.routines)
+			end := time.Since(start)
+
+			t.Logf("test n.%v with %v routines, %v maxRoutines took %v; aborted %v", k, v.routines, v.maxRoutines, end, val)
+		})
+	}
+
+}
+
+func TestNestedSync(t *testing.T) {
+
+	for k, v := range testTable {
+		t.Run("test_"+strconv.FormatInt(int64(k), 10), func(t *testing.T) {
+			t.Logf("start test n.%v with %v routines, %v maxRoutines", k, v.routines, v.maxRoutines)
+
+			start := time.Now()
+			val := NestedSyncFunc(v.maxRoutines, v.routines)
 			end := time.Since(start)
 
 			t.Logf("test n.%v with %v routines, %v maxRoutines took %v; aborted %v", k, v.routines, v.maxRoutines, end, val)

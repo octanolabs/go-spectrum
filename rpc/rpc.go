@@ -13,6 +13,11 @@ import (
 	"github.com/octanolabs/go-spectrum/util"
 )
 
+//TODO:
+// refactor with this:
+// github.com/ubiq/go-ubiq/ethclient
+// (maybe should also remove models and use github.com/ubiq/go-ubiq/types)
+
 type Config struct {
 	Type     string `json:"type"`
 	Endpoint string `json:"endpoint"`
