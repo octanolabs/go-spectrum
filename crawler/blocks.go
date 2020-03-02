@@ -188,8 +188,6 @@ func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uin
 	// maxRoutines equal to 2 times the number of txs to account for possible token transfers
 	txSync := syncronizer.NewSync(len(txs) * 2)
 
-	log.Debugf("Starting sync with %v txs", len(txs))
-
 	for _, val := range txs {
 
 		// Capture value of rawTx
@@ -200,28 +198,19 @@ func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uin
 		// Set timestamp here, if it's a token transfer the field needs to be present
 		tx.Timestamp = timestamp
 
-		log.Debugf("Syncing %v", tx.Hash)
-
 		txSync.AddLink(func(t *syncronizer.Task) {
 
 			receipt, err := c.rpc.GetTxReceipt(tx.Hash)
 			if err != nil {
 				log.Errorf("Error getting tx receipt: %v", err)
 			}
-
-			log.Debugln("Got here before link")
-
 			closed := t.Link()
-
-			log.Debugln("Got here after link")
 
 			if closed {
 				return
 			}
 
 			c.processTransaction(tx, receipt, data)
-
-			log.Debugln("Got here before end")
 		})
 
 		// If tx is a token transfer we add another link right after

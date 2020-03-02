@@ -1,7 +1,5 @@
 package syncronizer
 
-import log "github.com/sirupsen/logrus"
-
 type Task struct {
 	ranInit, hang, done chan int
 	fn                  func()
@@ -71,10 +69,7 @@ func newTask(s *Synchronizer, fn func(*Task), hang chan int) *Task {
 	rFn := func() {
 		fn(r)
 
-		log.Debugln("ROUTINE: sending done signal")
-
 		r.done <- 0
-		log.Debugln("ROUTINE: sent done signal")
 	}
 
 	r.fn = rFn

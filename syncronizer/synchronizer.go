@@ -1,7 +1,5 @@
 package syncronizer
 
-import log "github.com/sirupsen/logrus"
-
 func (s *Synchronizer) startTaskHandler() {
 
 	// As tasks are created with AddLink, and block at t.Link(), this goroutine will
@@ -16,9 +14,7 @@ func (s *Synchronizer) startTaskHandler() {
 			select {
 			case task := <-s.routines:
 
-				log.Debugln("SYNCRONIZER: waiting for task to run pre fetch")
 				task.wait()
-				log.Debugln("SYNCRONIZER: waited task")
 
 				abort = s.didAbort(task)
 
@@ -28,13 +24,9 @@ func (s *Synchronizer) startTaskHandler() {
 					break loop
 				}
 
-				log.Debugln("SYNCRONIZER: releasing task")
-
 				task.release()
 
-				log.Debugln("SYNCRONIZER: waiting for done signal")
 				task.finish()
-				log.Debugln("SYNCRONIZER: recv'd done signal")
 
 				abort = s.didAbort(task)
 
