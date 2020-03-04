@@ -31,7 +31,6 @@ func (r *Task) closeNext() {
 
 func (r *Task) wait() {
 	<-r.ranInit
-
 }
 
 func (r *Task) release() {
