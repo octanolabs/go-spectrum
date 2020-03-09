@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"sync"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -14,8 +13,11 @@ import (
 	"github.com/octanolabs/go-spectrum/syncronizer"
 )
 
-func (c *Crawler) SyncLoop() {
+func (c *BlockCrawler) SyncLoop() {
 	var currentBlock uint64
+
+	c.logChan = make(chan *logObject)
+	startLogger(c.logChan)
 
 	start := time.Now()
 
@@ -40,7 +42,7 @@ func (c *Crawler) SyncLoop() {
 
 	for ; currentBlock <= chainHead; currentBlock++ {
 
-		// capture blockNumber in b variable
+		// capture blockNumber
 		b := currentBlock
 
 		taskChain.AddLink(func(r *syncronizer.Task) {
@@ -68,15 +70,16 @@ func (c *Crawler) SyncLoop() {
 	abort := taskChain.Finish()
 
 	if abort {
-		log.Error("aborted taskChain")
+		log.Error("aborted sync")
 	} else {
-		log.Infof("Terminated taskChain in %v", time.Since(start))
+		log.Debugf("Terminated sync in %v", time.Since(start))
 	}
 
 	c.state.syncing = false
+	close(c.logChan)
 }
 
-func (c *Crawler) syncBlock(block models.Block, task *syncronizer.Task) {
+func (c *BlockCrawler) syncBlock(block models.Block, task *syncronizer.Task) {
 
 	var (
 		uncles              = make([]models.Uncle, 0)
@@ -146,7 +149,7 @@ func (c *Crawler) syncBlock(block models.Block, task *syncronizer.Task) {
 	c.log(block.Number, block.Txs, tokenTransfers, block.UncleNo, minted, supply)
 }
 
-func (c *Crawler) syncForkedBlock(b models.Block) {
+func (c *BlockCrawler) syncForkedBlock(b models.Block) {
 
 	reorgHeight := b.Number - 1
 
@@ -174,10 +177,9 @@ func (c *Crawler) syncForkedBlock(b models.Block) {
 type data struct {
 	gasPrice, txFees *big.Int
 	tokenTransfers   int
-	sync.Mutex
 }
 
-func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uint64) (avgGasPrice, txFees *big.Int, tokenTransfers int) {
+func (c *BlockCrawler) processTransactions(txs []models.RawTransaction, timestamp uint64) (avgGasPrice, txFees *big.Int, tokenTransfers int) {
 
 	data := &data{
 		gasPrice:       big.NewInt(0),
@@ -239,7 +241,7 @@ func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uin
 	return data.gasPrice.Div(data.gasPrice, big.NewInt(int64(len(txs)))), data.txFees, data.tokenTransfers
 }
 
-func (c *Crawler) processTransaction(tx models.Transaction, receipt models.TxReceipt, data *data) {
+func (c *BlockCrawler) processTransaction(tx models.Transaction, receipt models.TxReceipt, data *data) {
 
 	txGasPrice := big.NewInt(0).SetUint64(tx.GasPrice)
 
@@ -260,7 +262,7 @@ func (c *Crawler) processTransaction(tx models.Transaction, receipt models.TxRec
 
 }
 
-func (c *Crawler) processTokenTransfer(transfer *models.TokenTransfer) {
+func (c *BlockCrawler) processTokenTransfer(transfer *models.TokenTransfer) {
 
 	err := c.backend.AddTokenTransfer(transfer)
 	if err != nil {
@@ -269,7 +271,7 @@ func (c *Crawler) processTokenTransfer(transfer *models.TokenTransfer) {
 
 }
 
-func (c *Crawler) getPreviousBlock(blockNumber uint64) (blockCache, error) {
+func (c *BlockCrawler) getPreviousBlock(blockNumber uint64) (blockCache, error) {
 
 	// get parent block info from cache
 
@@ -290,7 +292,7 @@ func (c *Crawler) getPreviousBlock(blockNumber uint64) (blockCache, error) {
 	}
 }
 
-func (c *Crawler) handleReorg(b models.Block) {
+func (c *BlockCrawler) handleReorg(b models.Block) {
 
 	// a reorg has occured
 	log.Warnf("Reorg detected at block %v", b.Number-1)
@@ -306,7 +308,7 @@ func (c *Crawler) handleReorg(b models.Block) {
 
 }
 
-func (c *Crawler) log(blockNo uint64, txns, transfers, uncles int, minted *big.Int, supply *big.Int) {
+func (c *BlockCrawler) log(blockNo uint64, txns, transfers, uncles int, minted *big.Int, supply *big.Int) {
 	c.logChan <- &logObject{
 		blockNo:        blockNo,
 		txns:           txns,

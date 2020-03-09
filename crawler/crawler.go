@@ -26,9 +26,10 @@ type Config struct {
 	Enabled     bool   `json:"enabled"`
 	Interval    string `json:"interval"`
 	MaxRoutines int    `json:"routines"`
+	NodeCrawler bool   `json:"node_crawler"`
 }
 
-type Crawler struct {
+type BlockCrawler struct {
 	backend *storage.MongoDB
 	rpc     *rpc.RPCClient
 	cfg     *Config
@@ -40,17 +41,22 @@ type Crawler struct {
 	blockCache *lru.Cache // Cache for the most recent blocks
 }
 
-func New(db *storage.MongoDB, rpc *rpc.RPCClient, cfg *Config) *Crawler {
+func NewBlockCrawler(db *storage.MongoDB, rpc *rpc.RPCClient, cfg *Config) *BlockCrawler {
 	bc, _ := lru.New(blockCacheLimit)
-	return &Crawler{db, rpc, cfg, make(chan *logObject), struct{ syncing, reorg bool }{false, false}, bc}
+
+	if cfg.NodeCrawler {
+		nc := NewNodeCrawler(db, cfg)
+
+		nc.Start()
+	}
+
+	return &BlockCrawler{db, rpc, cfg, make(chan *logObject), struct{ syncing, reorg bool }{false, false}, bc}
 }
 
-func (c *Crawler) Start() {
-	log.Println("Starting block Crawler")
+func (c *BlockCrawler) Start() {
+	log.Println("Starting block BlockCrawler")
 
 	err := c.rpc.Ping()
-
-	startLogger(c)
 
 	if err != nil {
 		if err == err.(*url.Error) {
@@ -67,7 +73,7 @@ func (c *Crawler) Start() {
 
 	interval, err := time.ParseDuration(c.cfg.Interval)
 	if err != nil {
-		log.Fatalf("Crawler: can't parse duration: %v", err)
+		log.Fatalf("BlockCrawler: can't parse duration: %v", err)
 	}
 
 	ticker := time.NewTicker(interval)

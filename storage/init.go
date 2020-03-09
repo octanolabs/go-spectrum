@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+
 	"github.com/octanolabs/go-spectrum/models"
 	"github.com/octanolabs/go-spectrum/util"
 	log "github.com/sirupsen/logrus"
@@ -119,6 +120,16 @@ func (m *MongoDB) initIndexes() {
 
 	if err != nil {
 		log.Fatalf("Error, could not init indexes for transfers: %v", err)
+	}
+
+	iv = m.C(models.ENODES).Indexes()
+
+	enodeModel := mongo.IndexModel{bson.M{"raw_enode": 1}, options.Index().SetName("enodeIndex").SetUnique(true).SetBackground(true)}
+
+	_, err = iv.CreateOne(context.Background(), enodeModel, options.CreateIndexes())
+
+	if err != nil {
+		log.Fatalf("Error, could not init indexes for enodes: %v", err)
 	}
 
 	log.Warnf("Intialized database indexes")

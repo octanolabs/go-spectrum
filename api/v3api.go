@@ -12,7 +12,8 @@ import (
 	"github.com/ubiq/go-ubiq/rpc"
 )
 
-type V3api interface {
+// use unexported interface so it trims some methods we don't want to serve
+type v3api interface {
 	//blocks
 	LatestBlock() (models.Block, error)
 	LatestBlocks(limit int64) ([]models.Block, error)
@@ -109,7 +110,7 @@ func jsonLoggerMiddleware() gin.HandlerFunc {
 	})
 }
 
-func NewV3ServerStart(backend V3api, cfg *Config) {
+func NewV3ServerStart(backend v3api, cfg *Config) {
 
 	//TODO: Refactor api code
 	//		=================

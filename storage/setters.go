@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+
 	"github.com/octanolabs/go-spectrum/models"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -46,6 +47,15 @@ func (m *MongoDB) AddForkedBlock(b *models.Block) error {
 	collection := m.C(models.REORGS)
 
 	if _, err := collection.InsertOne(context.Background(), b, options.InsertOne()); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *MongoDB) AddEnodes(e *models.Enode) error {
+	collection := m.C(models.ENODES)
+
+	if _, err := collection.InsertOne(context.Background(), e, options.InsertOne()); err != nil {
 		return err
 	}
 	return nil

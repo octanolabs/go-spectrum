@@ -57,7 +57,7 @@ func readConfig(cfg *config.Config) {
 }
 
 func startCrawler(mongo *storage.MongoDB, rpc *rpc.RPCClient, cfg *crawler.Config) {
-	c := crawler.New(mongo, rpc, cfg)
+	c := crawler.NewBlockCrawler(mongo, rpc, cfg)
 	c.Start()
 }
 
@@ -65,6 +65,8 @@ func main() {
 	log.Info("go-spectrum ", params.VersionWithMeta, " (", params.VersionWithCommit, ")")
 
 	readConfig(&cfg)
+
+	log.Debugf("Printing config %v", cfg)
 
 	if cfg.Threads > 0 {
 		runtime.GOMAXPROCS(cfg.Threads)

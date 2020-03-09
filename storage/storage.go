@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/octanolabs/go-spectrum/models"
 	log "github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"time"
 )
 
 type Config struct {
@@ -82,21 +83,21 @@ func (m *MongoDB) Ping() error {
 
 func (m *MongoDB) PurgeBlock(height uint64) error {
 
-	r, err := m.C(models.BLOCKS).DeleteOne(context.Background(), bson.M{"blockNumber": height}, options.Delete())
+	r, err := m.C(models.BLOCKS).DeleteOne(context.Background(), bson.M{"number": height}, options.Delete())
 
 	if err != nil {
 		return err
 	}
 	log.Debugf("Purged %v blocks", r.DeletedCount)
 
-	r, err = m.C(models.TXNS).DeleteOne(context.Background(), bson.M{"blockNumber": height}, options.Delete())
+	r, err = m.C(models.TXNS).DeleteMany(context.Background(), bson.M{"blockNumber": height}, options.Delete())
 
 	if err != nil {
 		return err
 	}
 	log.Debugf("Purged %v transactions", r.DeletedCount)
 
-	r, err = m.C(models.TRANSFERS).DeleteOne(context.Background(), bson.M{"blockNumber": height}, options.Delete())
+	r, err = m.C(models.TRANSFERS).DeleteMany(context.Background(), bson.M{"blockNumber": height}, options.Delete())
 
 	if err != nil {
 		return err
@@ -104,4 +105,15 @@ func (m *MongoDB) PurgeBlock(height uint64) error {
 	log.Debugf("Purged %v transfers", r.DeletedCount)
 	return nil
 
+}
+
+func (m *MongoDB) IsEnodePresent(id string) bool {
+
+	err := m.C(models.ENODES).FindOne(context.Background(), bson.M{"id": id}, options.FindOne()).Err()
+
+	if err != nil {
+		log.Debugf("Error: could not find enode: %#v", err)
+		return false
+	}
+	return true
 }

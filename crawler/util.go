@@ -45,7 +45,7 @@ func (l *logObject) clear() {
 	l.supply = new(big.Int)
 }
 
-func startLogger(c *Crawler) {
+func startLogger(c chan *logObject) {
 
 	// Start logging goroutine
 
@@ -99,7 +99,7 @@ func startLogger(c *Crawler) {
 				}
 			}
 		}
-	}(c.logChan)
+	}(c)
 }
 
 // AccumulateRewards calculates the mining reward of the given block.
