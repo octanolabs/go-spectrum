@@ -1,6 +1,10 @@
 package syncronizer
 
-import "log"
+import (
+	"os"
+
+	"github.com/ubiq/go-ubiq/log"
+)
 
 // Returns a new sync object with no routines
 // Tasks should be linked inside the task function body via Task.Link()
@@ -10,7 +14,8 @@ import "log"
 func NewSync(maxRoutines int) *Synchronizer {
 
 	if maxRoutines == 0 {
-		log.Fatalf("Error, cannot start sync with 0 maxroutines, should be atleast 1")
+		log.Error("Error, cannot start sync with 0 maxroutines, should be atleast 1")
+		os.Exit(1)
 	}
 
 	s := &Synchronizer{}

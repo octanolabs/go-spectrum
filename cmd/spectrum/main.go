@@ -6,11 +6,10 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
-	"time"
 
 	"github.com/octanolabs/go-spectrum/api"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/ubiq/go-ubiq/log"
 
 	"github.com/octanolabs/go-spectrum/config"
 	"github.com/octanolabs/go-spectrum/crawler"
@@ -21,44 +20,60 @@ import (
 
 var cfg config.Config
 
+var appLogger log.Logger
+var mainLogger log.Logger
+
 func init() {
+
+	glogHandler := log.NewGlogHandler(log.StreamHandler(os.Stdout, log.LogfmtFormat()))
 
 	v, _ := strconv.ParseBool(os.Getenv("DEBUG"))
 	if v {
-		log.SetFormatter(&log.TextFormatter{FullTimestamp: true, TimestampFormat: time.StampNano})
-		log.SetLevel(log.DebugLevel)
-		//log.SetReportCaller(true)
+		glogHandler.Verbosity(log.LvlDebug)
 	} else {
-		log.SetFormatter(&log.TextFormatter{FullTimestamp: true, TimestampFormat: time.Stamp})
-		log.SetLevel(log.InfoLevel)
+		glogHandler.Verbosity(log.LvlInfo)
 	}
+
+	appLogger = log.New(glogHandler)
+	mainLogger = appLogger.New(log.Must.FileHandler("main", log.LogfmtFormat()))
 }
 
 func readConfig(cfg *config.Config) {
 
 	if len(os.Args) == 1 {
-		log.Fatalln("Invalid arguments")
+		mainLogger.Error("Invalid arguments", os.Args)
 	}
 
 	conf := os.Args[1]
-	conf, _ = filepath.Abs(conf)
+	confPath, err := filepath.Abs(conf)
 
-	log.Printf("Loading config: %v", conf)
-
-	configFile, err := os.Open(conf)
 	if err != nil {
-		log.Fatal("File error: ", err.Error())
+		mainLogger.Error("Error: could not parse config filepath", "err", err)
 	}
+
+	mainLogger.Info("Loading config", "path", confPath)
+
+	configFile, err := os.Open(confPath)
+	if err != nil {
+		appLogger.Error("File error", "err", err.Error())
+	}
+
 	defer configFile.Close()
+
 	jsonParser := json.NewDecoder(configFile)
 	if err := jsonParser.Decode(&cfg); err != nil {
-		log.Fatal("Config error: ", err.Error())
+		mainLogger.Error("Config error", "err", err.Error())
 	}
 }
 
-func startCrawler(mongo *storage.MongoDB, rpc *rpc.RPCClient, cfg *crawler.Config) {
-	c := crawler.NewBlockCrawler(mongo, rpc, cfg)
+func startCrawler(mongo *storage.MongoDB, cfg *crawler.Config, logger log.Logger, rpc *rpc.RPCClient) {
+	c := crawler.NewBlockCrawler(mongo, cfg, logger, rpc)
 	c.Start()
+}
+
+func startApi(mongo *storage.MongoDB, cfg *api.Config, logger log.Logger) {
+	a := api.NewV3ApiServer(mongo, cfg, logger)
+	a.Start()
 }
 
 func main() {
@@ -66,42 +81,40 @@ func main() {
 
 	readConfig(&cfg)
 
-	log.Debugf("Printing config %v", cfg)
+	mainLogger.Debug("Printing config", "cfg", cfg)
 
 	if cfg.Threads > 0 {
 		runtime.GOMAXPROCS(cfg.Threads)
-		log.Printf("Running with %v threads", cfg.Threads)
+		mainLogger.Info("App running", "threads", cfg.Threads)
 	} else {
 		runtime.GOMAXPROCS(1)
-		log.Println("Running with 1 thread")
+		mainLogger.Info("App running with 1 thread")
 	}
 
-	log.Debugf("Connecting to mongo at %v", cfg.Mongo.ConnectionString())
+	mainLogger.Debug("Connecting to mongo", "addr", cfg.Mongo.ConnectionString())
 
 	mongo, err := storage.NewConnection(&cfg.Mongo) // TODO - iquidus: fix this check
 
-	log.Debugf("Connecting to mongo at %v", cfg.Mongo.ConnectionString())
-
 	if err != nil {
-		log.Fatalf("Can't establish connection to mongo: %v", err)
+		mainLogger.Error("Can't establish connection to mongo: %v", err)
 	} else {
-		log.Printf("Successfully connected to mongo at %v", cfg.Mongo.Address)
+		mainLogger.Info("Successfully connected to mongo at %v", cfg.Mongo.Address)
 	}
 
 	err = mongo.Ping()
 
 	if err != nil {
-		log.Fatalf("Can't establish connection to mongo: %v", err)
+		mainLogger.Error("Can't establish connection to mongo", "err", err)
 	} else {
-		log.Println("PONG")
+		mainLogger.Info("mongo: PONG")
 	}
 
-	rpc := rpc.NewRPCClient(&cfg.Rpc)
+	rpcClient := rpc.NewRPCClient(&cfg.Rpc)
 
 	if cfg.Crawler.Enabled {
-		go startCrawler(mongo, rpc, &cfg.Crawler)
+		go startCrawler(mongo, &cfg.Crawler, appLogger.New("module", "crawler"), rpcClient)
 	} else if cfg.Api.Enabled {
-		api.NewV3ServerStart(mongo, &cfg.Api)
+		go startApi(mongo, &cfg.Api, appLogger.New("module", "api"))
 	}
 
 	quit := make(chan bool)

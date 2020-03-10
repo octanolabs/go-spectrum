@@ -9,7 +9,7 @@ import (
 
 	json "github.com/json-iterator/go"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/ubiq/go-ubiq/log"
 )
 
 func MakeTimestamp() int64 {
@@ -68,7 +68,7 @@ func DecodeHex(str string) uint64 {
 	i, err := strconv.ParseUint(str, 16, 64)
 
 	if err != nil {
-		log.Errorf("Couldn't decode hex (%v): %v", str, err)
+		log.Error("couldn't decode hex", "str", str, "err", err)
 		return 0
 	}
 
@@ -80,14 +80,14 @@ func DecodeValueHex(val string) string {
 		x, err := DecodeBig(val)
 
 		if err != nil {
-			log.Errorf("ErrorDecodeValueHex (%v): %v", val, err)
+			log.Error("errorDecodeValueHex", "str", val, "err", err)
 		}
 		return x.String()
 	} else {
 		x, ok := big.NewInt(0).SetString(val, 16)
 
 		if !ok {
-			log.Errorf("ErrorDecodeValueHex (%v): %v", val, ok)
+			log.Error("errorDecodeValueHex", "str", val, "ok", ok)
 		}
 
 		return x.String()

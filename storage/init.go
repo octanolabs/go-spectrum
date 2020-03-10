@@ -2,10 +2,11 @@ package storage
 
 import (
 	"context"
+	"os"
 
 	"github.com/octanolabs/go-spectrum/models"
 	"github.com/octanolabs/go-spectrum/util"
-	log "github.com/sirupsen/logrus"
+	"github.com/ubiq/go-ubiq/log"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -41,7 +42,8 @@ func (m *MongoDB) Init() {
 	collection := m.C(models.BLOCKS)
 
 	if _, err := collection.InsertOne(context.Background(), genesis); err != nil {
-		log.Fatalf("Could not init supply block: %v", err)
+		log.Error("could not init supply block", "err", err)
+		os.Exit(1)
 	}
 
 	collection = m.C(models.STORE)
@@ -53,12 +55,12 @@ func (m *MongoDB) Init() {
 	}
 
 	if _, err := collection.InsertOne(context.Background(), store); err != nil {
-		log.Fatalf("Could not init supply block: %v", err)
+		log.Error("could not init supply block", "err", err)
 	}
 
 	m.initIndexes()
 
-	log.Warnf("Initialized sysStore, genesis, indexes")
+	log.Warn("initialized sysStore, genesis, indexes")
 }
 
 func (m *MongoDB) initIndexes() {
@@ -71,7 +73,7 @@ func (m *MongoDB) initIndexes() {
 	_, err := iv.CreateMany(context.Background(), []mongo.IndexModel{bnIdxModel, bhIdxModel}, options.CreateIndexes())
 
 	if err != nil {
-		log.Fatalf("Error, could not init indexes for blocks: %v", err)
+		log.Error("could not init indexes for blocks", "err", err)
 	}
 
 	iv = m.C(models.REORGS).Indexes()
@@ -81,7 +83,7 @@ func (m *MongoDB) initIndexes() {
 	_, err = iv.CreateOne(context.Background(), rIdxModel, options.CreateIndexes())
 
 	if err != nil {
-		log.Fatalf("Error, could not init index %v: %v", rIdxModel.Options.Name, err)
+		log.Error("could not init index", "name", rIdxModel.Options.Name, "err", err)
 	}
 
 	iv = m.C(models.UNCLES).Indexes()
@@ -91,7 +93,7 @@ func (m *MongoDB) initIndexes() {
 	_, err = iv.CreateOne(context.Background(), uIdxModel, options.CreateIndexes())
 
 	if err != nil {
-		log.Fatalf("Error, could not init index %v: %v", uIdxModel.Options.Name, err)
+		log.Error("could not init index", "name", uIdxModel.Options.Name, "err", err)
 	}
 
 	iv = m.C(models.TXNS).Indexes()
@@ -105,7 +107,7 @@ func (m *MongoDB) initIndexes() {
 	_, err = iv.CreateMany(context.Background(), []mongo.IndexModel{txBNIdxModel, txHIdxModel, txFIdxModel, txTIdxModel, txCAIdxModel}, options.CreateIndexes())
 
 	if err != nil {
-		log.Fatalf("Error, could not init indexes for transactions: %v", err)
+		log.Error("could not init indexes for transactions", "err", err)
 	}
 
 	iv = m.C(models.TRANSFERS).Indexes()
@@ -119,7 +121,7 @@ func (m *MongoDB) initIndexes() {
 	_, err = iv.CreateMany(context.Background(), []mongo.IndexModel{trBNIdxModel, trHIdxModel, trFIdxModel, trTIdxModel, trCIdxModel}, options.CreateIndexes())
 
 	if err != nil {
-		log.Fatalf("Error, could not init indexes for transfers: %v", err)
+		log.Error("could not init indexes for transfers", "err", err)
 	}
 
 	iv = m.C(models.ENODES).Indexes()
@@ -129,9 +131,9 @@ func (m *MongoDB) initIndexes() {
 	_, err = iv.CreateOne(context.Background(), enodeModel, options.CreateIndexes())
 
 	if err != nil {
-		log.Fatalf("Error, could not init indexes for enodes: %v", err)
+		log.Error("could not init indexes for enodes", "err", err)
 	}
 
-	log.Warnf("Intialized database indexes")
+	log.Warn("initialised database indexes")
 
 }

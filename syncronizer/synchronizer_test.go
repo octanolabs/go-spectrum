@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/octanolabs/go-spectrum/models"
+	"log"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/octanolabs/go-spectrum/models"
 
 	"github.com/octanolabs/go-spectrum/rpc"
 
@@ -28,10 +28,8 @@ func TestMain(m *testing.M) {
 	err := json.Unmarshal(rpcCfg, &c)
 
 	if err != nil {
-		log.Errorf("Error unmarshaling: %v", err)
+		log.Fatal("Error unmarshaling ", "err", err)
 	}
-
-	log.Printf("%+v", c)
 
 	rpcClient = rpc.NewRPCClient(c)
 
@@ -41,7 +39,7 @@ func TestMain(m *testing.M) {
 func fetchBlock(h uint64) models.Block {
 	block, err := rpcClient.GetBlockByHeight(h)
 	if err != nil {
-		log.Errorf("Error getting block: %v", err)
+		log.Println("error getting block ", err)
 	}
 	return block
 }

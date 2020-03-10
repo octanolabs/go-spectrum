@@ -2,12 +2,14 @@ package rpc
 
 import (
 	"context"
+	"errors"
+	"os"
+
+	log "github.com/ubiq/go-ubiq/log"
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/ubiq/go-ubiq/common/hexutil"
 	"github.com/ubiq/go-ubiq/rpc"
-
-	log "github.com/sirupsen/logrus"
 
 	"github.com/octanolabs/go-spectrum/models"
 	"github.com/octanolabs/go-spectrum/util"
@@ -64,10 +66,11 @@ func NewRPCClient(cfg *Config) *RPCClient {
 
 	client, err := dialNewClient(cfg)
 	if err != nil {
-		log.Errorf("Error: could not dial rpc client:%v", err)
+		log.Error("could not dial rpc client", "err", err)
+		os.Exit(1)
 	}
 
-	rpcClient := &RPCClient{client: client}
+	rpcClient := &RPCClient{client}
 
 	return rpcClient
 }
@@ -117,19 +120,20 @@ func (r *RPCClient) GetUncleByBlockNumberAndIndex(height uint64, index int) (mod
 	return r.getUncleBy("eth_getUncleByBlockNumberAndIndex", hexutil.EncodeUint64(height), hexutil.EncodeUint64(uint64(index)))
 }
 
-func (r *RPCClient) GetUnclesInBlock(uncles []string, height uint64) []models.Uncle {
+// What is the purpose of this method
+
+func (r *RPCClient) GetUnclesInBlock(uncles []string, height uint64) ([]models.Uncle, error) {
 
 	var u []models.Uncle
 
 	for k := range uncles {
 		uncle, err := r.GetUncleByBlockNumberAndIndex(height, k)
 		if err != nil {
-			log.Errorf("Error getting uncle: %v", err)
-			return u
+			return u, errors.New("Error getting uncle: " + err.Error())
 		}
 		u = append(u, uncle)
 	}
-	return u
+	return u, nil
 }
 
 func (r *RPCClient) LatestBlockNumber() (uint64, error) {

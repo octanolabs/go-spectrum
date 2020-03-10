@@ -1,7 +1,6 @@
 package crawler
 
 import (
-	"fmt"
 	"net"
 	"time"
 
@@ -27,8 +26,8 @@ type NodeCrawler struct {
 	logger  log.Logger
 }
 
-func NewNodeCrawler(db *storage.MongoDB, cfg *Config) *NodeCrawler {
-	return &NodeCrawler{db, log.Log}
+func NewNodeCrawler(db *storage.MongoDB, cfg *Config, logger log.Logger) *NodeCrawler {
+	return &NodeCrawler{db, logger}
 }
 
 func (n *NodeCrawler) Start() {
@@ -44,7 +43,7 @@ func (n *NodeCrawler) Start() {
 	nodeKey, err := crypto.GenerateKey()
 
 	if err != nil {
-		log.Errorf("Error: could not gen key :%v", err)
+		n.logger.Error("could not gen key", "err", err)
 	}
 
 	cfg := discover.Config{
@@ -56,7 +55,7 @@ func (n *NodeCrawler) Start() {
 	db, err := enode.OpenDB("")
 
 	if err != nil {
-		log.Errorf("Error: could not open db :%v", err)
+		n.logger.Error("could not open db", "err", err)
 	}
 
 	localNode := enode.NewLocalNode(db, nodeKey)
@@ -64,13 +63,13 @@ func (n *NodeCrawler) Start() {
 	udpAddr, err := net.ResolveUDPAddr("udp", "0.0.0.0:18886")
 
 	if err != nil {
-		log.Errorf("Error: could not resolve udp address :%v", err)
+		n.logger.Error("could not resolve udp address", "err", err)
 	}
 
 	udpConn, err := net.ListenUDP("udp", udpAddr)
 
 	if err != nil {
-		log.Errorf("Error: could not create udp conn :%v", err)
+		n.logger.Error("could not create udp conn", "err", err)
 	}
 
 	table, err := discover.ListenUDP(udpConn, localNode, cfg)
@@ -84,7 +83,7 @@ func (n *NodeCrawler) Start() {
 		NoDiscovery:     true,
 		Name:            "ubiqscan-testing",
 		ListenAddr:      ":18887",
-		Dialer:          nil,
+		Logger:          n.logger.New("module", "p2pServer"),
 	}
 
 	server := p2p.Server{
@@ -94,7 +93,7 @@ func (n *NodeCrawler) Start() {
 	err = server.Start()
 
 	if err != nil {
-		log.Fatalf("Error: could not start server :%v", err)
+		n.logger.Error("could not start server", "err", err)
 	}
 
 	ticker := time.NewTicker(1 * time.Minute)
@@ -109,7 +108,7 @@ func (n *NodeCrawler) Start() {
 
 				enodes := table.LookupRandom()
 
-				log.Warnf("Gathered %v enodes (cached: %v)", len(enodes), len(cachedEnodes))
+				n.logger.Warn("gathered enodes", "enodes", len(enodes), "cached", len(cachedEnodes))
 
 				for _, v := range enodes {
 
@@ -137,7 +136,7 @@ func (n *NodeCrawler) Start() {
 					id := v.ID().String()
 					if _, ok := cachedEnodes[id]; ok {
 						delete(cachedEnodes, v.ID().String())
-						log.Debugln("peer", v.ID().String(), "removed from cached enodes")
+						n.logger.Debug("removed from cached enodes", "id", v.ID().String())
 					}
 				}
 
@@ -145,21 +144,17 @@ func (n *NodeCrawler) Start() {
 					server.AddPeer(v)
 				}
 
-				for _, v := range server.PeersInfo() {
-					log.Infof("Connected peer: %v", peerInfoToString(v))
+				for _, info := range server.PeersInfo() {
+					n.logger.Info("connected peer", "name", info.Name, "id", info.ID, "network", info.Network, "proto", info.Protocols)
 				}
 
-			case <-unhandledPackets:
-				//log.Warningf("Unhandled packet: %v, %s", p.Addr, p.Data)
+			case p := <-unhandledPackets:
+				n.logger.Trace("Unhandled packet: %v, %s", p.Addr, p.Data)
 			}
 		}
 
 	}()
 
-	log.Infoln("Started node crawler")
+	n.logger.Info("Started node crawler")
 
-}
-
-func peerInfoToString(info *p2p.PeerInfo) string {
-	return fmt.Sprintf("%v - id: %v - network: %v - proto: %v", info.Name, info.ID, info.Network, info.Protocols)
 }

@@ -2,7 +2,7 @@ package models
 
 import (
 	"github.com/octanolabs/go-spectrum/util"
-	log "github.com/sirupsen/logrus"
+	"github.com/ubiq/go-ubiq/log"
 )
 
 type RawTransaction struct {
@@ -104,7 +104,7 @@ func (tx *Transaction) GetTokenTransfer() *TokenTransfer {
 			tx.Input[10:74], tx.Input[74:138], tx.Input[138:],
 		}
 	} else {
-		log.Errorf("Error processing token transfer: input length is not standard: len: %v", len(tx.Input))
+		log.Error("couldn't proces token transfer: input length is not standard", "len", len(tx.Input))
 		return &TokenTransfer{}
 	}
 

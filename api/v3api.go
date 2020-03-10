@@ -1,14 +1,12 @@
 package api
 
 import (
-	"fmt"
 	"strconv"
 	"time"
 
-	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/octanolabs/go-spectrum/models"
-	log "github.com/sirupsen/logrus"
+	"github.com/ubiq/go-ubiq/log"
 	"github.com/ubiq/go-ubiq/rpc"
 )
 
@@ -92,76 +90,39 @@ func jsonParserMiddleware() gin.HandlerFunc {
 	}
 }
 
-func jsonLoggerMiddleware() gin.HandlerFunc {
-	return gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
+//func jsonLoggerMiddleware() gin.HandlerFunc {
+//	return gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
+//
+//		//your custom format
+//		return fmt.Sprintf("%s - [%d][%s] \t %s | \t %s - %s | %s | %s\t-\t%s\n",
+//			param.TimeStamp.Format(time.RFC1123),
+//			param.StatusCode,
+//			param.Method,
+//			param.Latency,
+//			param.ClientIP,
+//			param.Request.UserAgent(),
+//			param.Path,
+//			param.Keys["method"],
+//			param.Keys["params"],
+//		)
+//	})
+//}
 
-		//your custom format
-		return fmt.Sprintf("%s - [%d][%s] \t %s | \t %s - %s | %s | %s\t-\t%s\n",
-			param.TimeStamp.Format(time.RFC1123),
-			param.StatusCode,
-			param.Method,
-			param.Latency,
-			param.ClientIP,
-			param.Request.UserAgent(),
-			param.Path,
-			param.Keys["method"],
-			param.Keys["params"],
-		)
-	})
-}
+func jsonLoggerMiddleware(logger log.Logger) gin.HandlerFunc {
+	return func(context *gin.Context) {
+		start := time.Now()
 
-func NewV3ServerStart(backend v3api, cfg *Config) {
-
-	//TODO: Refactor api code
-	//		=================
-	//		add logger to read request body and params from req
-	//		try to re-implement v2 api as gin wrapper around v3 api
-
-	server := rpc.NewServer()
-
-	err := server.RegisterName("explorer", backend)
-
-	if err != nil {
-		log.Errorf("Error: couldn't register service: %v", err)
-	}
-
-	router := gin.New()
-
-	router.Use(gin.Recovery())
-	router.Use(cors.New(cors.Config{
-		AllowOrigins:  []string{"*"},
-		AllowMethods:  []string{"GET", "POST"},
-		AllowHeaders:  []string{"Origin"},
-		ExposeHeaders: []string{"Content-Length"},
-		MaxAge:        12 * time.Hour,
-	}))
-
-	v2 := router.Group("v2")
-
-	v2.Use(v2ConvertRequest())
-	v2.Use(jsonParserMiddleware())
-	v2.Use(jsonLoggerMiddleware())
-	v2.Use(v2ConvertResponse())
-
-	{
-		v2.GET("/*path", v3RouterHandler(server))
-	}
-
-	v3 := router.Group("v3")
-
-	v3.Use(jsonParserMiddleware())
-	v3.Use(jsonLoggerMiddleware())
-
-	{
-		v3.POST("/", v3RouterHandler(server))
-	}
-
-	go func() {
-		err := router.Run(":" + cfg.Port)
-
-		if err != nil {
-			log.Fatal("Error: Couldn't serve v3 api: %v", err)
+		ctx := log.Ctx{
+			"status":    context.Writer.Status(),
+			"method":    context.Request.Method,
+			"latency":   time.Since(start),
+			"from":      context.Request.RemoteAddr,
+			"agent":     context.Request.UserAgent(),
+			"path":      context.Request.URL.Path,
+			"rpcMethod": context.Param("method"),
+			"rpcParams": context.Param("params"),
 		}
-	}()
 
+		logger.Info("received http request", ctx)
+	}
 }

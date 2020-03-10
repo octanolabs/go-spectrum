@@ -10,7 +10,7 @@ import (
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/octanolabs/go-spectrum/rpc"
-	log "github.com/sirupsen/logrus"
+	"github.com/ubiq/go-ubiq/log"
 )
 
 const (
@@ -39,31 +39,32 @@ type BlockCrawler struct {
 		reorg   bool
 	}
 	blockCache *lru.Cache // Cache for the most recent blocks
+	logger     log.Logger
 }
 
-func NewBlockCrawler(db *storage.MongoDB, rpc *rpc.RPCClient, cfg *Config) *BlockCrawler {
+func NewBlockCrawler(db *storage.MongoDB, cfg *Config, logger log.Logger, rpc *rpc.RPCClient) *BlockCrawler {
 	bc, _ := lru.New(blockCacheLimit)
 
 	if cfg.NodeCrawler {
-		nc := NewNodeCrawler(db, cfg)
+		nc := NewNodeCrawler(db, cfg, logger.New("module", "node_crawler"))
 
 		nc.Start()
 	}
 
-	return &BlockCrawler{db, rpc, cfg, make(chan *logObject), struct{ syncing, reorg bool }{false, false}, bc}
+	return &BlockCrawler{db, rpc, cfg, make(chan *logObject), struct{ syncing, reorg bool }{false, false}, bc, logger}
 }
 
 func (c *BlockCrawler) Start() {
-	log.Println("Starting block BlockCrawler")
+	c.logger.Info("Starting block BlockCrawler")
 
 	err := c.rpc.Ping()
 
 	if err != nil {
 		if err == err.(*url.Error) {
-			log.Errorf("Gubiq node offline: %v", err)
+			c.logger.Error("Gubiq node offline", "err", err)
 			os.Exit(1)
 		} else {
-			log.Errorf("Error pinging rpc node: %#v", err)
+			c.logger.Error("Error pinging rpc node", "err", err)
 		}
 	}
 
@@ -73,12 +74,13 @@ func (c *BlockCrawler) Start() {
 
 	interval, err := time.ParseDuration(c.cfg.Interval)
 	if err != nil {
-		log.Fatalf("BlockCrawler: can't parse duration: %v", err)
+		c.logger.Error("can't parse duration", "err", err)
+		os.Exit(1)
 	}
 
 	ticker := time.NewTicker(interval)
 
-	log.Printf("Block refresh interval: %v", interval)
+	c.logger.Info("refresh interval: ", interval)
 
 	go c.SyncLoop()
 
@@ -86,7 +88,7 @@ func (c *BlockCrawler) Start() {
 		for {
 			select {
 			case <-ticker.C:
-				log.Debugf("Loop: %v, sync: %v", time.Now().UTC(), c.state.syncing)
+				c.logger.Debug("loop iteration", "syncing", c.state.syncing)
 				if c.state.syncing != true {
 					go c.SyncLoop()
 				}

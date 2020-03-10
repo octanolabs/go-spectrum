@@ -12,7 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	json "github.com/json-iterator/go"
-	log "github.com/sirupsen/logrus"
+	"github.com/ubiq/go-ubiq/log"
 )
 
 var legacyHandlers = map[*regexp.Regexp]func(re *regexp.Regexp, url string) (io.Reader, int64){
@@ -78,10 +78,10 @@ func jsonhttphelper(method string) func(*regexp.Regexp, string) (io.Reader, int6
 			num, err := strconv.ParseInt(string(v), 10, 64)
 			if err != nil {
 				if _, ok := err.(*strconv.NumError); ok {
-					log.Debugf("Param is not number (method: %v), setting as string (%v)", method, string(v))
+					log.Debug("Param is not number, setting as string", "method", method, "value", string(v))
 					req.Params[k] = string(v)
 				} else {
-					log.Debugf("Unexpected error converting param (method: %v), setting as string (%v): %#v", method, string(v), err)
+					log.Debug("Unexpected error converting param, setting as string", "method", method, "value", string(v), "err", err)
 					req.Params[k] = string(v)
 				}
 			} else {
@@ -91,7 +91,7 @@ func jsonhttphelper(method string) func(*regexp.Regexp, string) (io.Reader, int6
 
 		result, err := json.Marshal(req)
 		if err != nil {
-			log.Errorf("Error: couldn't parse regex :%v", err)
+			log.Error("Error: couldn't parse regex", "err", err)
 		}
 
 		return io.LimitReader(bytes.NewReader(result), int64(len(result))), int64(len(result))
@@ -126,13 +126,13 @@ func ParseJsonRequest(r *http.Request) (string, []json.RawMessage, io.ReadCloser
 
 	b, err := ioutil.ReadAll(io.LimitReader(r.Body, r.ContentLength))
 	if err != nil {
-		log.Errorf("Util: couldn't write request body to buffer :%v", err)
+		log.Error("Util: couldn't write request body to buffer", "err", err)
 	}
 
 	err = json.Unmarshal(b, &req)
 
 	if err != nil {
-		log.Errorf("Error: couldn't unmarshal body :%v", err)
+		log.Error("Error: couldn't unmarshal body", "err", err)
 	}
 
 	return req.Method, req.Params, ioutil.NopCloser(bytes.NewReader(b))
@@ -154,7 +154,7 @@ func (r v2ConvertResponseWriter) Write(b []byte) (int, error) {
 	err := json.Unmarshal(b, &req)
 
 	if err != nil {
-		log.Errorf("Error: couldn't marshal response body: %v", err)
+		log.Error("Error: couldn't marshal response body", "err", err)
 	}
 
 	if string(req.Body) == "null" {

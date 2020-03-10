@@ -4,7 +4,7 @@ import (
 	"math/big"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/ubiq/go-ubiq/log"
 
 	"github.com/octanolabs/go-spectrum/models"
 )
@@ -45,7 +45,7 @@ func (l *logObject) clear() {
 	l.supply = new(big.Int)
 }
 
-func startLogger(c chan *logObject) {
+func startLogger(c chan *logObject, logger log.Logger) {
 
 	// Start logging goroutine
 
@@ -68,32 +68,30 @@ func startLogger(c chan *logObject) {
 					stats.add(lo)
 
 					if stats.blocks >= 1000 || time.Now().After(start.Add(time.Minute)) {
-						log.WithFields(log.Fields{
-							"blocks":       stats.blocks,
-							"head":         stats.blockNo,
-							"transactions": stats.txns,
-							"transfers":    stats.tokentransfers,
-							"uncles":       stats.uncleNo,
-							"minted":       stats.minted,
-							"supply":       stats.supply,
-							"took":         time.Since(start),
-						}).Info("Imported new chain segment")
+						logger.Info("Imported new chain segment",
+							"blocks", stats.blocks,
+							"head", stats.blockNo,
+							"transactions", stats.txns,
+							"transfers", stats.tokentransfers,
+							"uncles", stats.uncleNo,
+							"minted", stats.minted,
+							"supply", stats.supply,
+							"took", time.Since(start))
 
 						stats.clear()
 						start = time.Now()
 					}
 				} else {
 					if stats.blocks > 0 {
-						log.WithFields(log.Fields{
-							"blocks":       stats.blocks,
-							"head":         stats.blockNo,
-							"transactions": stats.txns,
-							"transfers":    stats.tokentransfers,
-							"uncles":       stats.uncleNo,
-							"minted":       stats.minted,
-							"supply":       stats.supply,
-							"took":         time.Since(start),
-						}).Info("Imported new chain segment")
+						logger.Info("Imported new chain segment",
+							"blocks", stats.blocks,
+							"head", stats.blockNo,
+							"transactions", stats.txns,
+							"transfers", stats.tokentransfers,
+							"uncles", stats.uncleNo,
+							"minted", stats.minted,
+							"supply", stats.supply,
+							"took", time.Since(start))
 					}
 					break logLoop
 				}

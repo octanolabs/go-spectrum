@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/octanolabs/go-spectrum/models"
-	log "github.com/sirupsen/logrus"
+	"github.com/ubiq/go-ubiq/log"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -39,8 +39,7 @@ func NewConnection(cfg *Config) (*MongoDB, error) {
 
 	client, err := mongo.NewClient(options.Client().ApplyURI(cfg.ConnectionString()))
 	if err != nil {
-		log.Fatalf("Error creating mongo client: %v", err)
-		log.Debugf("Unwrapped: %v", errors.Unwrap(err))
+		log.Error("error creating mongo client", "err", err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 
@@ -49,8 +48,7 @@ func NewConnection(cfg *Config) (*MongoDB, error) {
 	err = client.Connect(ctx)
 
 	if err != nil {
-		log.Fatalf("Error connecting to mongo: %v", err)
-		log.Debugf("Unwrapped: %v", errors.Unwrap(err))
+		log.Error("couldn't connect to mongo", "err", err)
 	}
 
 	return &MongoDB{cfg.Symbol, client, client.Database(cfg.Database, options.Database())}, nil
@@ -64,13 +62,11 @@ func (m *MongoDB) IsFirstRun() bool {
 
 	err := m.C(models.STORE).FindOne(context.Background(), bson.M{}, options.FindOne()).Err()
 
-	log.Debugf("err: %#v", err)
-
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return true
 		} else {
-			log.Fatalf("Error during initialization: %v", err)
+			log.Error("Error during initialization", "err", err)
 		}
 	}
 
@@ -88,21 +84,21 @@ func (m *MongoDB) PurgeBlock(height uint64) error {
 	if err != nil {
 		return err
 	}
-	log.Debugf("Purged %v blocks", r.DeletedCount)
+	log.Debug("purged %v blocks", "count", r.DeletedCount)
 
 	r, err = m.C(models.TXNS).DeleteMany(context.Background(), bson.M{"blockNumber": height}, options.Delete())
 
 	if err != nil {
 		return err
 	}
-	log.Debugf("Purged %v transactions", r.DeletedCount)
+	log.Debug("purged %v transactions", "count", r.DeletedCount)
 
 	r, err = m.C(models.TRANSFERS).DeleteMany(context.Background(), bson.M{"blockNumber": height}, options.Delete())
 
 	if err != nil {
 		return err
 	}
-	log.Debugf("Purged %v transfers", r.DeletedCount)
+	log.Debug("purged %v transfers", "count", r.DeletedCount)
 	return nil
 
 }
@@ -112,7 +108,7 @@ func (m *MongoDB) IsEnodePresent(id string) bool {
 	err := m.C(models.ENODES).FindOne(context.Background(), bson.M{"id": id}, options.FindOne()).Err()
 
 	if err != nil {
-		log.Debugf("Error: could not find enode: %#v", err)
+		log.Debug("could not find enode", "err", err)
 		return false
 	}
 	return true

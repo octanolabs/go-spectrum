@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -13,32 +14,39 @@ import (
 	"github.com/octanolabs/go-spectrum/syncronizer"
 )
 
+//TODO: ebentually implement a log.Handler that acts like crawler.log
+
 func (c *BlockCrawler) SyncLoop() {
 	var currentBlock uint64
 
 	c.logChan = make(chan *logObject)
-	startLogger(c.logChan)
-
-	start := time.Now()
 
 	// get db head
 	indexHead, err := c.backend.LatestBlock()
 	if err != nil {
-		log.Fatalf("Error getting latest block: %v", err)
+		c.logger.Error("couldn't get latest block", "err", err)
 	}
 
-	log.Debugf("Db block: %+v", indexHead)
+	c.logger.Debug("Db block: %+v", indexHead)
 
 	// get node head
 	chainHead, err := c.rpc.LatestBlockNumber()
 	if err != nil {
-		log.Errorf("Error getting block number: %v", err)
+		c.logger.Error("couldn't get block number", "err", err)
 	}
 
 	taskChain := syncronizer.NewSync(c.cfg.MaxRoutines)
 
 	c.state.syncing = true
 	currentBlock = indexHead.Number + 1
+
+	syncLogger := c.logger.New("module", "sync_"+strconv.FormatInt(int64(currentBlock), 10))
+
+	start := time.Now()
+
+	syncLogger.Debug("started sync at", "t", start)
+
+	startLogger(c.logChan, syncLogger)
 
 	for ; currentBlock <= chainHead; currentBlock++ {
 
@@ -49,7 +57,7 @@ func (c *BlockCrawler) SyncLoop() {
 			block, err := c.rpc.GetBlockByHeight(b)
 
 			if err != nil {
-				log.Errorf("Error getting block: %v", err)
+				syncLogger.Error("failed getting block", "err", err)
 				c.state.syncing = false
 				r.AbortSync()
 				return
@@ -58,7 +66,7 @@ func (c *BlockCrawler) SyncLoop() {
 			abort := r.Link()
 
 			if abort {
-				log.Debug("Aborting routine")
+				syncLogger.Debug("Aborting routine")
 				return
 			}
 
@@ -70,9 +78,9 @@ func (c *BlockCrawler) SyncLoop() {
 	abort := taskChain.Finish()
 
 	if abort {
-		log.Error("aborted sync")
+		syncLogger.Error("aborted")
 	} else {
-		log.Debugf("Terminated sync in %v", time.Since(start))
+		syncLogger.Debug("terminated sync", "t", time.Since(start))
 	}
 
 	c.state.syncing = false
@@ -93,7 +101,7 @@ func (c *BlockCrawler) syncBlock(block models.Block, task *syncronizer.Task) {
 	prevBlock, err := c.getPreviousBlock(block.Number)
 
 	if err != nil {
-		log.Errorf("Error getting previous block: %v", err)
+		c.logger.Error("couldn't get previous block", "err", err)
 
 		task.AbortSync()
 		return
@@ -114,7 +122,10 @@ func (c *BlockCrawler) syncBlock(block models.Block, task *syncronizer.Task) {
 
 	// populate uncles
 	if len(block.Uncles) > 0 {
-		uncles = c.rpc.GetUnclesInBlock(block.Uncles, block.Number)
+		uncles, err = c.rpc.GetUnclesInBlock(block.Uncles, block.Number)
+		if err != nil {
+			c.logger.Error("couldn't get uncles", "err", err)
+		}
 	}
 
 	// calculate rewards
@@ -140,7 +151,7 @@ func (c *BlockCrawler) syncBlock(block models.Block, task *syncronizer.Task) {
 	// write block to db
 	err = c.backend.AddBlock(&block)
 	if err != nil {
-		log.Errorf("Error adding block: %v", err)
+		c.logger.Error("couldn't add block", "err", err)
 	}
 
 	// add required block info to cache for next iteration
@@ -155,23 +166,20 @@ func (c *BlockCrawler) syncForkedBlock(b models.Block) {
 
 	dbBlock, err := c.backend.BlockByNumber(reorgHeight)
 	if err != nil {
-		log.Errorf("Error getting forked block: %v", err)
+		c.logger.Error("couldn't get forked block", "err", err)
 	}
 
 	err = c.backend.AddForkedBlock(&dbBlock)
 	if err != nil {
-		log.Errorf("Error adding reorg'd block: %v", err)
+		c.logger.Error("couldn't add reorg'd block", "err", err)
 	}
 
 	err = c.backend.PurgeBlock(reorgHeight)
 	if err != nil {
-		log.Errorf("Error purging reorg'd block: %v", err)
+		c.logger.Error("couldn't purge reorg'd block", "err", err)
 	}
 
-	log.WithFields(log.Fields{
-		"HEAD":   fmt.Sprint(b.Number, b.Hash),
-		"FORKED": fmt.Sprint(dbBlock.Number, dbBlock.Hash),
-	}).Warn("Synced forked block")
+	c.logger.Warn("Synced forked block", "HEAD", fmt.Sprint(b.Number, b.Hash), "FORKED", fmt.Sprint(dbBlock.Number, dbBlock.Hash))
 }
 
 type data struct {
@@ -204,7 +212,7 @@ func (c *BlockCrawler) processTransactions(txs []models.RawTransaction, timestam
 
 			receipt, err := c.rpc.GetTxReceipt(tx.Hash)
 			if err != nil {
-				log.Errorf("Error getting tx receipt: %v", err)
+				c.logger.Error("couldn't get tx receipt", "err", err)
 			}
 			closed := t.Link()
 
@@ -257,7 +265,7 @@ func (c *BlockCrawler) processTransaction(tx models.Transaction, receipt models.
 
 	err := c.backend.AddTransaction(&tx)
 	if err != nil {
-		log.Errorf("Error inserting tx into backend: %#v", err)
+		c.logger.Error("couldn't insert tx into backend", "err", err)
 	}
 
 }
@@ -266,7 +274,7 @@ func (c *BlockCrawler) processTokenTransfer(transfer *models.TokenTransfer) {
 
 	err := c.backend.AddTokenTransfer(transfer)
 	if err != nil {
-		log.Errorf("Error processing token transfer into backend: %v", err)
+		log.Errorf("couldn't insert token transfer into backend", "err", err)
 	}
 
 }
@@ -281,11 +289,12 @@ func (c *BlockCrawler) getPreviousBlock(blockNumber uint64) (blockCache, error) 
 		return cached.(blockCache), nil
 	} else {
 		// parent block not cached, fetch from db
-		log.Warnf("block %v not found in cache (%v), retrieving from database", b, c.blockCache)
+		c.logger.Warn("block not found in cache, retrieving from database", "number", b)
+		c.logger.Debug("cache", c.blockCache)
 
 		latestBlock, err := c.backend.BlockByNumber(b)
 		if err != nil {
-			return blockCache{}, errors.New("block %v not found in database")
+			return blockCache{}, errors.New("block " + strconv.FormatInt(int64(b), 10) + " not found in database")
 		}
 		sprev, _ := new(big.Int).SetString(latestBlock.Supply, 10)
 		return blockCache{sprev, latestBlock.Hash}, nil
@@ -295,16 +304,16 @@ func (c *BlockCrawler) getPreviousBlock(blockNumber uint64) (blockCache, error) 
 func (c *BlockCrawler) handleReorg(b models.Block) {
 
 	// a reorg has occured
-	log.Warnf("Reorg detected at block %v", b.Number-1)
+	c.logger.Warn("reorg detected", "height", b.Number-1)
 
 	// clear cache
-	log.Warnf("Purging block cache.")
+	c.logger.Warn("Purging block cache.")
 	c.blockCache.Purge()
 
 	// sync forked Block and remove parent Block from db
 	c.syncForkedBlock(b)
 
-	log.Warnf("Forked block %v synced and removed from blocks collection.", b.Number-1)
+	c.logger.Warn("synced forked block and purged reorg from blocks collection", "height", b.Number-1)
 
 }
 
