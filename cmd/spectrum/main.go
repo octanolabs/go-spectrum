@@ -1,83 +1,78 @@
 package main
 
 import (
-	"encoding/json"
+	"flag"
+	"fmt"
 	"os"
-	"path/filepath"
 	"runtime"
-	"strconv"
 
-	"github.com/octanolabs/go-spectrum/api"
+	"github.com/rivo/tview"
+
+	"github.com/octanolabs/go-spectrum/util/logui"
 
 	"github.com/ubiq/go-ubiq/log"
 
 	"github.com/octanolabs/go-spectrum/config"
-	"github.com/octanolabs/go-spectrum/crawler"
 	"github.com/octanolabs/go-spectrum/params"
 	"github.com/octanolabs/go-spectrum/rpc"
 	"github.com/octanolabs/go-spectrum/storage"
 )
 
-var cfg config.Config
+var (
+	cfg        config.Config
+	appLogger  = log.Root()
+	mainLogger log.Logger
 
-var appLogger log.Logger
-var mainLogger log.Logger
+	RootHandler *log.GlogHandler
+
+	loguiHandler *logui.PassthroughHandler
+
+	enableLogUi, enableDebug bool
+	configFileName           string
+)
+
+const (
+	configFlagDefault = "config.json"
+	configFlagDesc    = "specify name of config file (should be in working dir)"
+
+	debugFlagDefault = false
+	debugFlagDesc    = "enable debug logs"
+)
 
 func init() {
 
-	glogHandler := log.NewGlogHandler(log.StreamHandler(os.Stdout, log.LogfmtFormat()))
+	flag.StringVar(&configFileName, "c", configFlagDefault, configFlagDesc)
+	flag.StringVar(&configFileName, "config", configFlagDefault, configFlagDesc)
 
-	v, _ := strconv.ParseBool(os.Getenv("DEBUG"))
-	if v {
-		glogHandler.Verbosity(log.LvlDebug)
+	flag.BoolVar(&enableDebug, "d", debugFlagDefault, debugFlagDesc)
+	flag.BoolVar(&enableDebug, "debug", debugFlagDefault, debugFlagDesc)
+
+	flag.BoolVar(&enableLogUi, "logui", false, "Enables logui")
+
+	flag.Parse()
+
+	if enableLogUi {
+		ch := make(chan *tview.TextView, 10)
+		loguiHandler = logui.NewPassThroughHandler(ch)
+
+		RootHandler = log.NewGlogHandler(loguiHandler)
 	} else {
-		glogHandler.Verbosity(log.LvlInfo)
+		RootHandler = log.NewGlogHandler(log.StreamHandler(os.Stdout, log.TerminalFormat(true)))
 	}
 
-	appLogger = log.New(glogHandler)
-	mainLogger = appLogger.New(log.Must.FileHandler("main", log.LogfmtFormat()))
-}
-
-func readConfig(cfg *config.Config) {
-
-	if len(os.Args) == 1 {
-		mainLogger.Error("Invalid arguments", os.Args)
+	if enableDebug {
+		RootHandler.Verbosity(log.LvlDebug)
+	} else {
+		RootHandler.Verbosity(log.LvlInfo)
 	}
 
-	conf := os.Args[1]
-	confPath, err := filepath.Abs(conf)
+	appLogger.SetHandler(RootHandler)
 
-	if err != nil {
-		mainLogger.Error("Error: could not parse config filepath", "err", err)
-	}
-
-	mainLogger.Info("Loading config", "path", confPath)
-
-	configFile, err := os.Open(confPath)
-	if err != nil {
-		appLogger.Error("File error", "err", err.Error())
-	}
-
-	defer configFile.Close()
-
-	jsonParser := json.NewDecoder(configFile)
-	if err := jsonParser.Decode(&cfg); err != nil {
-		mainLogger.Error("Config error", "err", err.Error())
-	}
-}
-
-func startCrawler(mongo *storage.MongoDB, cfg *crawler.Config, logger log.Logger, rpc *rpc.RPCClient) {
-	c := crawler.NewBlockCrawler(mongo, cfg, logger, rpc)
-	c.Start()
-}
-
-func startApi(mongo *storage.MongoDB, cfg *api.Config, logger log.Logger) {
-	a := api.NewV3ApiServer(mongo, cfg, logger)
-	a.Start()
+	mainLogger = log.Root().New("pkg", "main")
 }
 
 func main() {
-	log.Info("go-spectrum ", params.VersionWithMeta, " (", params.VersionWithCommit, ")")
+	log.Info(fmt.Sprint("go-spectrum ", params.VersionWithMeta, " (", params.VersionWithCommit, ")"))
 
 	readConfig(&cfg)
 
@@ -112,11 +107,16 @@ func main() {
 	rpcClient := rpc.NewRPCClient(&cfg.Rpc)
 
 	if cfg.Crawler.Enabled {
-		go startCrawler(mongo, &cfg.Crawler, appLogger.New("module", "crawler"), rpcClient)
+		go startCrawler(mongo, &cfg.Crawler, appLogger.New("pkg", "crawler"), rpcClient)
 	} else if cfg.Api.Enabled {
-		go startApi(mongo, &cfg.Api, appLogger.New("module", "api"))
+		go startApi(mongo, &cfg.Api, appLogger.New("pkg", "api"))
 	}
 
-	quit := make(chan bool)
-	<-quit
+	if enableLogUi {
+		lui := logui.NewLogUi(loguiHandler, appLogger.New("pkg", "ui"))
+		lui.Start()
+	} else {
+		quit := make(chan int)
+		<-quit
+	}
 }

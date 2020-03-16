@@ -27,7 +27,7 @@ func (c *BlockCrawler) SyncLoop() {
 		c.logger.Error("couldn't get latest block", "err", err)
 	}
 
-	c.logger.Debug("Db block: %+v", indexHead)
+	c.logger.Debug("fetched block from db", "number", indexHead)
 
 	// get node head
 	chainHead, err := c.rpc.LatestBlockNumber()
@@ -40,7 +40,7 @@ func (c *BlockCrawler) SyncLoop() {
 	c.state.syncing = true
 	currentBlock = indexHead.Number + 1
 
-	syncLogger := c.logger.New("module", "sync_"+strconv.FormatInt(int64(currentBlock), 10))
+	syncLogger := c.logger.New("pkg", "sync", "blockNumber", strconv.FormatInt(int64(currentBlock), 10))
 
 	start := time.Now()
 
@@ -290,7 +290,6 @@ func (c *BlockCrawler) getPreviousBlock(blockNumber uint64) (blockCache, error) 
 	} else {
 		// parent block not cached, fetch from db
 		c.logger.Warn("block not found in cache, retrieving from database", "number", b)
-		c.logger.Debug("cache", c.blockCache)
 
 		latestBlock, err := c.backend.BlockByNumber(b)
 		if err != nil {

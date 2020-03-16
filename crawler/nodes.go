@@ -80,10 +80,10 @@ func (n *NodeCrawler) Start() {
 		PrivateKey:      nodeKey,
 		MaxPeers:        100,
 		MaxPendingPeers: 25,
-		NoDiscovery:     true,
-		Name:            "ubiqscan-testing",
-		ListenAddr:      ":18887",
-		Logger:          n.logger.New("module", "p2pServer"),
+		//NoDiscovery:     true,
+		Name:       "ubiqscan-testing",
+		ListenAddr: ":18887",
+		Logger:     n.logger.New("dependency", "crawler/p2pServer"),
 	}
 
 	server := p2p.Server{

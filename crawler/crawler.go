@@ -46,7 +46,7 @@ func NewBlockCrawler(db *storage.MongoDB, cfg *Config, logger log.Logger, rpc *r
 	bc, _ := lru.New(blockCacheLimit)
 
 	if cfg.NodeCrawler {
-		nc := NewNodeCrawler(db, cfg, logger.New("module", "node_crawler"))
+		nc := NewNodeCrawler(db, cfg, logger.New("pkg", "crawler/node_crawler"))
 
 		nc.Start()
 	}
@@ -80,7 +80,7 @@ func (c *BlockCrawler) Start() {
 
 	ticker := time.NewTicker(interval)
 
-	c.logger.Info("refresh interval: ", interval)
+	c.logger.Info("refresh interval set", "d", interval)
 
 	go c.SyncLoop()
 
