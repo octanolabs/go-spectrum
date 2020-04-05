@@ -2,8 +2,8 @@ package syncronizer
 
 func (s *Synchronizer) startTaskHandler() {
 
-	// As tasks are created with AddLink, and block at t.Link(), this goroutine will
-	// receive them from the channel; it waits until the tasks calls t.Link(),
+	// As tasks are created with s.AddLink, and block at task.Link(), this goroutine will
+	// receive them from the channel; it waits until the tasks calls t.Link() (if it didn't already),
 	// resumes execution and waits for it to finish, doing this for each task until
 	// the channel is empty or one of the tasks calls t.Abort()
 
@@ -40,7 +40,7 @@ func (s *Synchronizer) startTaskHandler() {
 			// (go scheduler quirks??) before others are inserted, so the number of items in the channel
 			// can't be relied upon to quit the taskHandler;
 			// s.shouldQuit() will return true only when s.Finish() has been called
-			// and the default case will only if there are no more task to receive (len(s.routines) == 0)
+			// and the default case will only run if there are no more task to receive (len(s.routines) == 0)
 
 			default:
 				if s.shouldQuit() {
@@ -88,8 +88,9 @@ func (s *Synchronizer) AddLink(body func(*Task)) {
 
 // Finish hangs until all tasks have completed executions, and there are no more tasks
 // or if the sync was aborted
+// when finish is called no new tasks should be added
 
-func (s *Synchronizer) Finish() (closed bool) {
+func (s *Synchronizer) Finish() (aborted bool) {
 	s.quitChan <- 0
 	for {
 		select {

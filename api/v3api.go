@@ -1,7 +1,6 @@
 package api
 
 import (
-	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -43,31 +42,12 @@ type v3api interface {
 	TokenTransfersByAccount(token string, account string) ([]models.TokenTransfer, error)
 	TokenTransfersByAccountCount(token string, account string) (int64, error)
 	LatestTransfersOfToken(hash string) ([]models.TokenTransfer, error)
-	TokenTransferCount(hash string) (int64, error)
+	ContractTransferCount(hash string) (int64, error)
+	TotalTransferCount() (int64, error)
 	TokenTransferCountByContract(hash string) (int64, error)
 
 	//misc
-	ChainStore(symbol string) (models.Store, error)
-}
-
-func v2ConvertRequest() gin.HandlerFunc {
-	return func(context *gin.Context) {
-		newReader, length := ConvertJSONHTTPReq(context.Request)
-
-		l := strconv.FormatInt(length, 10)
-
-		context.Request.Body = newReader
-		context.Request.ContentLength = length
-		context.Request.Header.Set("Content-Length", l)
-		context.Request.Header.Set("Content-Type", "application/json")
-
-	}
-}
-
-func v2ConvertResponse() gin.HandlerFunc {
-	return func(context *gin.Context) {
-		context.Writer = v2ConvertResponseWriter{ResponseWriter: context.Writer}
-	}
+	Status() (models.Store, error)
 }
 
 func v3RouterHandler(server *rpc.Server) gin.HandlerFunc {
@@ -112,17 +92,30 @@ func jsonLoggerMiddleware(logger log.Logger) gin.HandlerFunc {
 	return func(context *gin.Context) {
 		start := time.Now()
 
-		ctx := log.Ctx{
-			"status":    context.Writer.Status(),
-			"method":    context.Request.Method,
-			"latency":   time.Since(start),
-			"from":      context.Request.RemoteAddr,
-			"agent":     context.Request.UserAgent(),
-			"path":      context.Request.URL.Path,
-			"rpcMethod": context.Param("method"),
-			"rpcParams": context.Param("params"),
+		context.Next()
+
+		if _, ok := context.Params.Get("method"); ok {
+
+			if _, ok = context.Params.Get("params"); ok {
+				logger.Info("received http request",
+					"path", context.Request.URL.Path,
+					"status", context.Writer.Status(),
+					"method", context.Request.Method,
+					"latency", time.Since(start),
+					"from", context.Request.RemoteAddr,
+					"agent", context.Request.UserAgent(),
+					"rpcMethod", context.Param("method"),
+					"rpcParams", context.Param("params"))
+			}
+		} else {
+			logger.Info("received http request",
+				"path", context.Request.URL.Path,
+				"status", context.Writer.Status(),
+				"method", context.Request.Method,
+				"latency", time.Since(start),
+				"from", context.Request.RemoteAddr,
+				"agent", context.Request.UserAgent())
 		}
 
-		logger.Info("received http request", ctx)
 	}
 }

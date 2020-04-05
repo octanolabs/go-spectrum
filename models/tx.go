@@ -59,6 +59,7 @@ type Transaction struct {
 	TransactionIndex uint64 `bson:"transactionIndex" json:"transactionIndex"`
 	From             string `bson:"from" json:"from"`
 	To               string `bson:"to" json:"to"`
+	Status           bool   `json:"status"`
 	//
 	GasUsed         uint64  `bson:"gasUsed" json:"gasUsed"`
 	ContractAddress string  `bson:"contractAddress" json:"contractAddress"`
@@ -168,52 +169,79 @@ type TokenTransfer struct {
 	Value       string `bson:"value" json:"value"`
 	Contract    string `bson:"contract" json:"contract"`
 	Method      string `bson:"method" json:"method"`
+	Status      bool   `json:"status"`
 	// If the token can't be recognized we give it "unknown" method and attach the input data
 	Data string `json:"data,omitempty" bson:"data,omitempty"`
 }
 
 type RawTxReceipt struct {
-	TransactionHash   string  `json:"transactionHash"`
-	TransactionIndex  string  `json:"transactionIndex"`
-	BlockNumber       string  `json:"blockNumber"`
 	BlockHash         string  `json:"blockHash"`
-	CumulativeGasUsed string  `json:"cumulativeGasUsed"`
-	GasUsed           string  `json:"gasUsed"`
+	BlockNumber       string  `json:"blockNumber"`
 	ContractAddress   string  `json:"contractAddress"`
+	CumulativeGasUsed string  `json:"cumulativeGasUsed"`
+	From              string  `json:"from"`
+	GasUsed           string  `json:"gasUsed"`
 	Logs              []TxLog `json:"logs"`
 	LogsBloom         string  `json:"logsBloom"`
 	Status            string  `json:"status"`
+	To                string  `json:"to"`
+	TransactionHash   string  `json:"transactionHash"`
+	TransactionIndex  string  `json:"transactionIndex"`
 }
 
+//{
+//"blockHash": "0x5cae9e3aae39e3e9970de0307445fd442333713f9e6f5d0fed51e19b56ff6259",
+//"blockNumber": "0x117640",
+//"contractAddress": null,
+//"cumulativeGasUsed": "0x47c70",
+//"from": "0x09692a71d42c209f42b731af8edd6910287437d3",
+//"gasUsed": "0x5208",
+//"logs": [],
+//"logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+//"status": "0x1",
+//"to": "0xb3c4e9ca7c12a6277deb9eef2dece65953d1c864",
+//"transactionHash": "0x8d028a79d671bef7e0b405eb9905978186421611d895103c00244a89dc3a13c3",
+//"transactionIndex": "0xd"
+//}
+
 func (rtr *RawTxReceipt) Convert() TxReceipt {
+	var status bool
+
+	if rtr.Status == "0x1" {
+		status = true
+	}
+
 	return TxReceipt{
-		TransactionHash:   rtr.TransactionHash,
-		TransactionIndex:  rtr.TransactionIndex,
 		BlockNumber:       util.DecodeHex(rtr.BlockNumber),
 		BlockHash:         rtr.BlockHash,
-		CumulativeGasUsed: util.DecodeHex(rtr.CumulativeGasUsed),
-		GasUsed:           util.DecodeHex(rtr.GasUsed),
 		ContractAddress:   rtr.ContractAddress,
+		CumulativeGasUsed: util.DecodeHex(rtr.CumulativeGasUsed),
+		From:              rtr.From,
+		GasUsed:           util.DecodeHex(rtr.GasUsed),
 		Logs:              rtr.Logs,
 		LogsBloom:         rtr.LogsBloom,
-		Status:            rtr.Status,
+		Status:            status,
+		To:                rtr.To,
+		TransactionHash:   rtr.TransactionHash,
+		TransactionIndex:  rtr.TransactionIndex,
 	}
 }
 
 type TxReceipt struct {
-	TransactionHash   string  `json:"transactionHash"`
-	TransactionIndex  string  `json:"transactionIndex"`
-	BlockNumber       uint64  `json:"blockNumber"`
 	BlockHash         string  `json:"blockHash"`
-	CumulativeGasUsed uint64  `json:"cumulativeGasUsed"`
-	GasUsed           uint64  `json:"gasUsed"`
+	BlockNumber       uint64  `json:"blockNumber"`
 	ContractAddress   string  `json:"contractAddress"`
+	CumulativeGasUsed uint64  `json:"cumulativeGasUsed"`
+	From              string  `json:"from"`
+	GasUsed           uint64  `json:"gasUsed"`
 	Logs              []TxLog `json:"logs"`
 	LogsBloom         string  `json:"logsBloom"`
-	Status            string  `json:"status"`
+	Status            bool    `json:"status"`
+	To                string  `json:"to"`
+	TransactionHash   string  `json:"transactionHash"`
+	TransactionIndex  string  `json:"transactionIndex"`
 }
 
-// FIXME: this is broken, also probably useless, setting everything to string
 type TxLog struct {
 	Address          string   `bson:"address" json:"address"`
 	Topics           []string `bson:"topics" json:"topics"`

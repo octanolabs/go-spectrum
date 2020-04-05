@@ -9,13 +9,20 @@ import (
 	"strconv"
 	"unicode"
 
+	"github.com/octanolabs/go-spectrum/models"
+
 	"github.com/gin-gonic/gin"
 
 	json "github.com/json-iterator/go"
 	"github.com/ubiq/go-ubiq/log"
 )
 
-var legacyHandlers = map[*regexp.Regexp]func(re *regexp.Regexp, url string) (io.Reader, int64){
+// v2 helper functions
+// TODO: add 404 not found response for requests that don't match
+
+var legacyHandlers = map[*regexp.Regexp]func(re *regexp.Regexp, url string) (io.Reader, int64, string){
+
+	regexp.MustCompile(`^/v2/(?:status)$`): jsonhttphelper("explorer_status"),
 
 	regexp.MustCompile(`^/v2/(?:latest)$`):                        jsonhttphelper("explorer_latestBlock"),
 	regexp.MustCompile(`^/v2/(?:latestblocks)/(?P<params>(.*))$`): jsonhttphelper("explorer_latestBlocks"),
@@ -44,8 +51,8 @@ var legacyHandlers = map[*regexp.Regexp]func(re *regexp.Regexp, url string) (io.
 	//regexp.MustCompile(`^/(?:(geodata))$`):                                      jsonhttphelper("explorer_"),
 }
 
-func jsonhttphelper(method string) func(*regexp.Regexp, string) (io.Reader, int64) {
-	return func(re *regexp.Regexp, url string) (io.Reader, int64) {
+func jsonhttphelper(method string) func(*regexp.Regexp, string) (io.Reader, int64, string) {
+	return func(re *regexp.Regexp, url string) (io.Reader, int64, string) {
 		var (
 			expanded []byte
 			result   []byte
@@ -94,24 +101,25 @@ func jsonhttphelper(method string) func(*regexp.Regexp, string) (io.Reader, int6
 			log.Error("Error: couldn't parse regex", "err", err)
 		}
 
-		return io.LimitReader(bytes.NewReader(result), int64(len(result))), int64(len(result))
+		return io.LimitReader(bytes.NewReader(result), int64(len(result))), int64(len(result)), method
 	}
 }
 
-func ConvertJSONHTTPReq(r *http.Request) (io.ReadCloser, int64) {
+func ConvertJSONHTTPReq(r *http.Request) (io.ReadCloser, int64, string) {
 
 	var (
 		res    io.Reader
 		length int64
+		method string
 	)
 
 	for k, handler := range legacyHandlers {
 		if k.MatchString(r.URL.Path) {
-			res, length = handler(k, r.URL.Path)
+			res, length, method = handler(k, r.URL.Path)
 		}
 	}
 
-	return ioutil.NopCloser(res), length
+	return ioutil.NopCloser(res), length, method
 }
 
 func ParseJsonRequest(r *http.Request) (string, []json.RawMessage, io.ReadCloser) {
@@ -139,7 +147,46 @@ func ParseJsonRequest(r *http.Request) (string, []json.RawMessage, io.ReadCloser
 
 }
 
+// v2 handlers
+
+// explorer_latestBlocks explorer_latestUncles explorer_latestTransactions explorer_latestTokenTransfers
+// for these 4 methods the legacy api returned the totals for these collections, and we append that info
+// directly into response via v2ConvertResponseWriter
+
+func v2ConvertRequest() gin.HandlerFunc {
+	return func(context *gin.Context) {
+		newReader, length, method := ConvertJSONHTTPReq(context.Request)
+
+		l := strconv.FormatInt(length, 10)
+
+		context.Request.Body = newReader
+		context.Request.ContentLength = length
+		context.Request.Header.Set("Content-Length", l)
+		context.Request.Header.Set("Content-Type", "application/json")
+
+		context.Set("method", method)
+
+	}
+}
+
+func v2ConvertResponse(handlers v3api) gin.HandlerFunc {
+	return func(context *gin.Context) {
+
+		var p string
+
+		param, ok := context.Get("method")
+
+		if ok {
+			p, _ = param.(string)
+		}
+
+		context.Writer = v2ConvertResponseWriter{ResponseWriter: context.Writer, statusHandler: handlers, method: p}
+	}
+}
+
 type v2ConvertResponseWriter struct {
+	statusHandler interface{ Status() (models.Store, error) }
+	method        string
 	gin.ResponseWriter
 }
 
@@ -159,6 +206,40 @@ func (r v2ConvertResponseWriter) Write(b []byte) (int, error) {
 
 	if string(req.Body) == "null" {
 		req.Body = []byte("[]")
+	}
+
+	store, err := r.statusHandler.Status()
+
+	if err != nil {
+		log.Error("error with responsewriter", "err", err)
+		return r.ResponseWriter.Write(req.Body)
+	}
+
+	switch r.method {
+	case "explorer_latestBlocks":
+		msg, err := json.Marshal(map[string]interface{}{"blocks": req.Body, "total": store.LatestBlock.Number + 1})
+		if err != nil {
+			break
+		}
+		return r.ResponseWriter.Write(msg)
+	case "explorer_latestUncles":
+		msg, err := json.Marshal(map[string]interface{}{"uncles": req.Body, "total": store.TotalUncles})
+		if err != nil {
+			break
+		}
+		return r.ResponseWriter.Write(msg)
+	case "explorer_latestTransactions":
+		msg, err := json.Marshal(map[string]interface{}{"txns": req.Body, "total": store.TotalTransactions})
+		if err != nil {
+			break
+		}
+		return r.ResponseWriter.Write(msg)
+	case "explorer_latestTokenTransfers":
+		msg, err := json.Marshal(map[string]interface{}{"txns": req.Body, "total": store.TotalTokenTransfers})
+		if err != nil {
+			break
+		}
+		return r.ResponseWriter.Write(msg)
 	}
 
 	return r.ResponseWriter.Write(req.Body)

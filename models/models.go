@@ -18,12 +18,14 @@ const (
 )
 
 type Store struct {
-	Timestamp int64  `bson:"timestamp" json:"timestamp"`
-	Symbol    string `bson:"symbol" json:"symbol"`
-	Supply    string `bson:"supply" json:"supply"`
-	// LatestBlock Block     `bson:"latestBlock" json:"latestBlock"`
-	// Price       string    `bson:"price" json:"price"`
-	// syncBlock [1]uint64 `bson:"sync"`
+	Timestamp           int64  `bson:"timestamp" json:"timestamp"`
+	Symbol              string `bson:"symbol" json:"symbol"`
+	Supply              string `bson:"supply" json:"supply"`
+	LatestBlock         Block  `bson:"latestBlock" json:"latestBlock"`
+	Price               string `bson:"price" json:"price"`
+	TotalTransactions   int64  `bson:"totalTransactions" json:"totalTransactions"`
+	TotalTokenTransfers int64  `bson:"totalTokenTransfers" json:"totalTokenTransfers"`
+	TotalUncles         int64  `bson:"totalUncles" json:"totalUncles"`
 }
 
 type Enode struct {

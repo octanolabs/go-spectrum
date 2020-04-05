@@ -8,13 +8,10 @@ import (
 )
 
 //TODO:
-//	logger handlers:
-//		- One that reads all records and checks for "module" keys (to recognize all the loggers) √
-//		- One that splits them all up with a log.MultiHandler() and log.MatchFilterHandler() √
 //	tview:
 //		- Treenode of loggers
-//		- Open log window with treeNode.SetSelectedFunc √
 //		- figure out if we should Limit the textview buffer at some point
+//		- Keep the log messages in a capped buffer/cache, and retrieve on demand
 
 //func MakeHandler() *log.GlogHandler {
 //

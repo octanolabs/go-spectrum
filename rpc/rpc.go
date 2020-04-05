@@ -157,7 +157,7 @@ func (r *RPCClient) GetTxReceipt(hash string) (models.TxReceipt, error) {
 		return models.TxReceipt{}, err
 	}
 
-	return models.TxReceipt{}, nil
+	return reply.Convert(), nil
 }
 
 func (r *RPCClient) Ping() error {

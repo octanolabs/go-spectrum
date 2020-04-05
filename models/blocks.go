@@ -79,6 +79,8 @@ type Block struct {
 	Transactions []RawTransaction `bson:"-" json:"-"`
 	Txs          int              `bson:"transactions" json:"transactions"`
 	//
+	TokenTransfers int `bson:"tokenTransfers" json:"tokenTransfers"`
+	//
 	Hash            string `bson:"hash" json:"hash"`
 	ParentHash      string `bson:"parentHash" json:"parentHash"`
 	Sha3Uncles      string `bson:"sha3Uncles" json:"sha3Uncles"`

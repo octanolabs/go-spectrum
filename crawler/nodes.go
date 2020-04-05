@@ -14,12 +14,7 @@ import (
 	"github.com/ubiq/go-ubiq/params"
 )
 
-// Use this github.com/ubiq/go-ubiq/p2p/discover
-
-//TODO: continuously fetch enodes and store in DB, as raw enodes;
-// periodically fetch peers from database, check if online/offline,
-// locate them with ip2c, store sorted and located in DB
-// serve active & offline nodes thru api
+//TODO: revisit after merging upstream 1.9
 
 type NodeCrawler struct {
 	backend *storage.MongoDB
@@ -78,8 +73,8 @@ func (n *NodeCrawler) Start() {
 
 	p2pCfg := p2p.Config{
 		PrivateKey:      nodeKey,
-		MaxPeers:        100,
-		MaxPendingPeers: 25,
+		MaxPeers:        250,
+		MaxPendingPeers: 40,
 		//NoDiscovery:     true,
 		Name:       "ubiqscan-testing",
 		ListenAddr: ":18887",
@@ -116,9 +111,6 @@ func (n *NodeCrawler) Start() {
 						cachedEnodes[v.ID().String()] = v
 					}
 
-					//TODO: we want to get these and save them to db https://pkg.go.dev/github.com/ubiq/go-ubiq/p2p?tab=doc#Peer
-					// maybe implement a p2p.Server
-
 					//record := models.Enode{
 					//	Id:   v.ID(),
 					//	Ip:   v.IP(),
@@ -145,7 +137,7 @@ func (n *NodeCrawler) Start() {
 				}
 
 				for _, info := range server.PeersInfo() {
-					n.logger.Info("connected peer", "name", info.Name, "id", info.ID, "network", info.Network, "proto", info.Protocols)
+					n.logger.Info("connected peer", "name", info.Name, "id", info.ID, "network", info.Network, "caps", info.Caps)
 				}
 
 			case p := <-unhandledPackets:

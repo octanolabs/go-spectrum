@@ -14,8 +14,6 @@ import (
 	"github.com/octanolabs/go-spectrum/syncronizer"
 )
 
-//TODO: ebentually implement a log.Handler that acts like crawler.log
-
 func (c *BlockCrawler) SyncLoop() {
 	var currentBlock uint64
 
@@ -83,6 +81,12 @@ func (c *BlockCrawler) SyncLoop() {
 		syncLogger.Debug("terminated sync", "t", time.Since(start))
 	}
 
+	err = c.backend.UpdateStore()
+
+	if err != nil {
+		c.logger.Error("Error updating store", "err", err)
+	}
+
 	c.state.syncing = false
 	close(c.logChan)
 }
@@ -141,6 +145,7 @@ func (c *BlockCrawler) syncBlock(block models.Block, task *syncronizer.Task) {
 
 	minted.Add(blockReward, uncleRewards)
 
+	block.TokenTransfers = tokenTransfers
 	block.AvgGasPrice = avgGasPrice.String()
 	block.TxFees = txFees.String()
 	block.BlockReward = blockReward.String()
@@ -179,7 +184,7 @@ func (c *BlockCrawler) syncForkedBlock(b models.Block) {
 		c.logger.Error("couldn't purge reorg'd block", "err", err)
 	}
 
-	c.logger.Warn("Synced forked block", "HEAD", fmt.Sprint(b.Number, b.Hash), "FORKED", fmt.Sprint(dbBlock.Number, dbBlock.Hash))
+	c.logger.Warn("Synced forked block", "HEAD", fmt.Sprintf("(number: %v, hash: %v)", b.Number, b.Hash), "FORKED", fmt.Sprintf("(number: %v, hash: %v)", dbBlock.Number, dbBlock.Hash))
 }
 
 type data struct {
@@ -220,7 +225,7 @@ func (c *BlockCrawler) processTransactions(txs []models.RawTransaction, timestam
 				return
 			}
 
-			c.processTransaction(tx, receipt, data)
+			c.processTransaction(&tx, receipt, data)
 		})
 
 		// If tx is a token transfer we add another link right after
@@ -238,7 +243,7 @@ func (c *BlockCrawler) processTransactions(txs []models.RawTransaction, timestam
 					return
 				}
 
-				c.processTokenTransfer(transfer)
+				c.processTokenTransfer(transfer, &tx)
 			})
 		}
 
@@ -249,7 +254,7 @@ func (c *BlockCrawler) processTransactions(txs []models.RawTransaction, timestam
 	return data.gasPrice.Div(data.gasPrice, big.NewInt(int64(len(txs)))), data.txFees, data.tokenTransfers
 }
 
-func (c *BlockCrawler) processTransaction(tx models.Transaction, receipt models.TxReceipt, data *data) {
+func (c *BlockCrawler) processTransaction(tx *models.Transaction, receipt models.TxReceipt, data *data) {
 
 	txGasPrice := big.NewInt(0).SetUint64(tx.GasPrice)
 
@@ -262,15 +267,21 @@ func (c *BlockCrawler) processTransaction(tx models.Transaction, receipt models.
 	tx.GasUsed = receipt.GasUsed
 	tx.ContractAddress = receipt.ContractAddress
 	tx.Logs = receipt.Logs
+	tx.Status = receipt.Status
 
-	err := c.backend.AddTransaction(&tx)
+	c.logger.Debug("tx to insert", "tx", fmt.Sprintf("%+v", tx), "receipt", fmt.Sprintf("%+v", receipt))
+
+	err := c.backend.AddTransaction(tx)
 	if err != nil {
 		c.logger.Error("couldn't insert tx into backend", "err", err)
 	}
 
 }
 
-func (c *BlockCrawler) processTokenTransfer(transfer *models.TokenTransfer) {
+func (c *BlockCrawler) processTokenTransfer(transfer *models.TokenTransfer, tx *models.Transaction) {
+
+	// Setting status here as we need to wait for the tx in the previous link to be processed
+	transfer.Status = tx.Status
 
 	err := c.backend.AddTokenTransfer(transfer)
 	if err != nil {

@@ -49,9 +49,12 @@ func (m *MongoDB) Init() {
 	collection = m.C(models.STORE)
 
 	store := &models.Store{
-		Timestamp: util.MakeTimestamp(),
-		Symbol:    m.symbol,
-		Supply:    "36108073197716300000000000",
+		Timestamp:           util.MakeTimestamp(),
+		Symbol:              m.symbol,
+		Supply:              "36108073197716300000000000",
+		TotalTransactions:   0,
+		TotalTokenTransfers: 0,
+		TotalUncles:         0,
 	}
 
 	if _, err := collection.InsertOne(context.Background(), store); err != nil {

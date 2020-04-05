@@ -8,7 +8,7 @@ type Task struct {
 	activeSync          *Synchronizer
 }
 
-// Link should be called exactly once inside every task.
+// Link should be called exactly once inside the fn of every task.
 
 func (r *Task) Link() (close bool) {
 	r.ranInit <- 0

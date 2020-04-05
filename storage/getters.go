@@ -8,12 +8,16 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+//TODO: add new getters
+// -failed transactions (status: false)
+// -contract calls
+
 // Store
 
-func (m *MongoDB) ChainStore(symbol string) (models.Store, error) {
+func (m *MongoDB) Status() (models.Store, error) {
 	var store models.Store
 
-	sr := m.C(models.STORE).FindOne(context.Background(), bson.M{"symbol": symbol}, options.FindOne())
+	sr := m.C(models.STORE).FindOne(context.Background(), bson.M{"symbol": m.symbol}, options.FindOne())
 
 	err := sr.Decode(&store)
 
@@ -233,7 +237,7 @@ func (m *MongoDB) LatestTransfersOfToken(hash string) ([]models.TokenTransfer, e
 	return transfers, err
 }
 
-func (m *MongoDB) TokenTransferCount(hash string) (int64, error) {
+func (m *MongoDB) ContractTransferCount(hash string) (int64, error) {
 	// This functions is identical to transactionCount
 	count, err := m.C(models.TRANSFERS).CountDocuments(context.Background(), bson.M{"$or": []bson.M{{"from": hash}, {"to": hash}}}, options.Count())
 	return count, err
@@ -241,6 +245,11 @@ func (m *MongoDB) TokenTransferCount(hash string) (int64, error) {
 
 func (m *MongoDB) TokenTransferCountByContract(hash string) (int64, error) {
 	count, err := m.C(models.TRANSFERS).CountDocuments(context.Background(), bson.M{"contract": hash}, options.Count())
+	return count, err
+}
+
+func (m *MongoDB) TotalTransferCount() (int64, error) {
+	count, err := m.C(models.TRANSFERS).CountDocuments(context.Background(), bson.M{}, options.Count())
 	return count, err
 }
 

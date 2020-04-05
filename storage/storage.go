@@ -113,3 +113,58 @@ func (m *MongoDB) IsEnodePresent(id string) bool {
 	}
 	return true
 }
+
+func (m *MongoDB) UpdateStore() error {
+
+	var (
+		txCount, transferCount, uncleCount int64
+		latestBlock                        models.Block
+	)
+
+	collection := m.C(models.STORE)
+
+	txCount, err := m.TotalTxnCount()
+
+	if err != nil {
+		return err
+	}
+
+	transferCount, err = m.TotalTransferCount()
+
+	if err != nil {
+		return err
+	}
+
+	uncleCount, err = m.TotalUncleCount()
+
+	if err != nil {
+		return err
+	}
+
+	latestBlock, err = m.LatestBlock()
+
+	if err != nil {
+		return err
+	}
+
+	filter := bson.M{"symbol": m.symbol}
+	update := bson.D{{"$set", bson.M{
+		"updated":             time.Now().Unix(),
+		"supply":              latestBlock.Supply,
+		"latestBlock":         latestBlock,
+		"totalTransactions":   txCount,
+		"totalTokenTransfers": transferCount,
+		"totalUncles":         uncleCount,
+	}}}
+
+	updateRes, err := collection.UpdateOne(context.Background(), filter, update, options.Update())
+	if err != nil {
+		return err
+	}
+
+	if updateRes.ModifiedCount == 0 {
+		return errors.New("didn't update " + m.symbol + " store")
+	}
+	return nil
+
+}

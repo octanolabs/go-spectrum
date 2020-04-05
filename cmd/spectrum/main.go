@@ -27,16 +27,17 @@ var (
 
 	loguiHandler *logui.PassthroughHandler
 
-	enableLogUi, enableDebug bool
-	configFileName           string
+	enableLogUi    bool
+	logLevel       string
+	configFileName string
 )
 
 const (
 	configFlagDefault = "config.json"
 	configFlagDesc    = "specify name of config file (should be in working dir)"
 
-	debugFlagDefault = false
-	debugFlagDesc    = "enable debug logs"
+	logLevelFlagDefault = "info"
+	logLevelFlagDesc    = "set level of logs"
 )
 
 func init() {
@@ -44,8 +45,8 @@ func init() {
 	flag.StringVar(&configFileName, "c", configFlagDefault, configFlagDesc)
 	flag.StringVar(&configFileName, "config", configFlagDefault, configFlagDesc)
 
-	flag.BoolVar(&enableDebug, "d", debugFlagDefault, debugFlagDesc)
-	flag.BoolVar(&enableDebug, "debug", debugFlagDefault, debugFlagDesc)
+	flag.StringVar(&logLevel, "ll", logLevelFlagDefault, logLevelFlagDesc)
+	flag.StringVar(&logLevel, "logLevel", logLevelFlagDefault, logLevelFlagDesc)
 
 	flag.BoolVar(&enableLogUi, "logui", false, "Enables logui")
 
@@ -60,8 +61,10 @@ func init() {
 		RootHandler = log.NewGlogHandler(log.StreamHandler(os.Stdout, log.TerminalFormat(true)))
 	}
 
-	if enableDebug {
+	if logLevel == "debug" || logLevel == "d" || logLevel == "dbg" {
 		RootHandler.Verbosity(log.LvlDebug)
+	} else if logLevel == "trace" || logLevel == "t" {
+		RootHandler.Verbosity(log.LvlTrace)
 	} else {
 		RootHandler.Verbosity(log.LvlInfo)
 	}
