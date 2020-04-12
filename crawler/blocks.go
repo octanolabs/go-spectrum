@@ -132,6 +132,19 @@ func (c *BlockCrawler) syncBlock(block models.Block, task *syncronizer.Task) {
 		}
 	}
 
+	wait := make(chan int)
+
+	go func() {
+		for _, uncle := range uncles {
+			err := c.backend.AddUncle(&uncle)
+
+			if err != nil {
+				c.logger.Error("couldn't add uncle", "uncle", uncle)
+			}
+		}
+		wait <- 0
+	}()
+
 	// calculate rewards
 	blockReward, uncleRewards, minted := AccumulateRewards(&block, uncles)
 
@@ -163,6 +176,8 @@ func (c *BlockCrawler) syncBlock(block models.Block, task *syncronizer.Task) {
 	c.blockCache.Add(block.Number, blockCache{Supply: supply, Hash: block.Hash})
 
 	c.log(block.Number, block.Txs, tokenTransfers, block.UncleNo, minted, supply)
+
+	<-wait
 }
 
 func (c *BlockCrawler) syncForkedBlock(b models.Block) {

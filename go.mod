@@ -3,9 +3,11 @@ module github.com/octanolabs/go-spectrum
 go 1.12
 
 require (
+	github.com/allegro/bigcache v1.2.1 // indirect
 	github.com/aristanetworks/goarista v0.0.0-20191106175434-873d404c7f40 // indirect
 	github.com/btcsuite/btcd v0.20.1-beta // indirect
 	github.com/deckarep/golang-set v1.7.1 // indirect
+	github.com/edsrzf/mmap-go v1.0.0 // indirect
 	github.com/gdamore/tcell v1.3.0
 	github.com/gin-contrib/cors v1.3.0
 	github.com/gin-gonic/gin v1.5.0

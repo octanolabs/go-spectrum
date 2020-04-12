@@ -96,7 +96,7 @@ func main() {
 	if err != nil {
 		mainLogger.Error("Can't establish connection to mongo: %v", err)
 	} else {
-		mainLogger.Info("Successfully connected to mongo at %v", cfg.Mongo.Address)
+		mainLogger.Info("Successfully connected to mongo", "addr", cfg.Mongo.Address)
 	}
 
 	err = mongo.Ping()
