@@ -117,8 +117,8 @@ func (m *MongoDB) IsEnodePresent(id string) bool {
 func (m *MongoDB) UpdateStore() error {
 
 	var (
-		txCount, transferCount, uncleCount int64
-		latestBlock                        models.Block
+		txCount, transferCount, uncleCount, forkedBlockCount int64
+		latestBlock                                          models.Block
 	)
 
 	collection := m.C(models.STORE)
@@ -141,6 +141,12 @@ func (m *MongoDB) UpdateStore() error {
 		return err
 	}
 
+	forkedBlockCount, err = m.TotalForkedBlockCount()
+
+	if err != nil {
+		return err
+	}
+
 	latestBlock, err = m.LatestBlock()
 
 	if err != nil {
@@ -155,6 +161,7 @@ func (m *MongoDB) UpdateStore() error {
 		"totalTransactions":   txCount,
 		"totalTokenTransfers": transferCount,
 		"totalUncles":         uncleCount,
+		"totalForkedBlocks":   forkedBlockCount,
 	}}}
 
 	updateRes, err := collection.UpdateOne(context.Background(), filter, update, options.Update())

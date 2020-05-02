@@ -11,7 +11,7 @@ import (
 
 type Config struct {
 	Enabled bool `json:"enabled"`
-	//V3      bool   `json:"v3"`
+	//V3      bool   `json:"v4"`
 	Port string `json:"port"`
 	//Nodemap struct {
 	//	Enabled bool   `json:"enabled"`
@@ -21,7 +21,7 @@ type Config struct {
 }
 
 type ApiServer struct {
-	handlers v3api
+	handlers v4api
 	cfg      *Config
 	logger   log.Logger
 }
@@ -47,24 +47,24 @@ func (a *ApiServer) Start() {
 		MaxAge:        12 * time.Hour,
 	}))
 
-	v2 := router.Group("v2")
-
-	v2.Use(v2ConvertRequest())
-	v2.Use(jsonParserMiddleware())
-	v2.Use(jsonLoggerMiddleware(a.logger.New("endpoint", "/v2")))
-	v2.Use(v2ConvertResponse(a.handlers))
-
-	{
-		v2.GET("/*path", v3RouterHandler(rpcServer))
-	}
-
 	v3 := router.Group("v3")
 
+	v3.Use(v3ConvertRequest())
 	v3.Use(jsonParserMiddleware())
 	v3.Use(jsonLoggerMiddleware(a.logger.New("endpoint", "/v3")))
+	v3.Use(v3ConvertResponse())
 
 	{
-		v3.POST("/", v3RouterHandler(rpcServer))
+		v3.GET("/*path", v4RouterHandler(rpcServer))
+	}
+
+	v4 := router.Group("v4")
+
+	v4.Use(jsonParserMiddleware())
+	v4.Use(jsonLoggerMiddleware(a.logger.New("endpoint", "/v4")))
+
+	{
+		v4.POST("/", v4RouterHandler(rpcServer))
 	}
 
 	go func() {
@@ -76,7 +76,7 @@ func (a *ApiServer) Start() {
 	}()
 }
 
-func NewV3ApiServer(backend v3api, cfg *Config, logger log.Logger) *ApiServer {
+func NewV3ApiServer(backend v4api, cfg *Config, logger log.Logger) *ApiServer {
 
 	s := &ApiServer{
 		handlers: backend,

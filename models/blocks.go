@@ -95,6 +95,7 @@ type Block struct {
 	Uncles  []string `bson:"-" json:"-"`
 	UncleNo int      `bson:"uncles" json:"uncles"`
 	// TODO: Should these be strings
+	// Maybe make this more clear // minted = baseBlockReward + uncleRewards? + bonusRewardForUncles?
 	BlockReward  string `bson:"blockReward" json:"blockReward"`
 	UncleRewards string `bson:"uncleRewards" json:"uncleRewards"`
 	AvgGasPrice  string `bson:"avgGasPrice" json:"avgGasPrice"`

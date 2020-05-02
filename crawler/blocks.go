@@ -132,21 +132,7 @@ func (c *BlockCrawler) syncBlock(block models.Block, task *syncronizer.Task) {
 		}
 	}
 
-	wait := make(chan int)
-
-	go func() {
-		for _, uncle := range uncles {
-			err := c.backend.AddUncle(&uncle)
-
-			if err != nil {
-				c.logger.Error("couldn't add uncle", "uncle", uncle)
-			}
-		}
-		wait <- 0
-	}()
-
-	// calculate rewards
-	blockReward, uncleRewards, minted := AccumulateRewards(&block, uncles)
+	blockReward, uncleRewards, minted := c.processUncles(&block, uncles)
 
 	// add minted to supply
 	var supply = new(big.Int)
@@ -176,8 +162,6 @@ func (c *BlockCrawler) syncBlock(block models.Block, task *syncronizer.Task) {
 	c.blockCache.Add(block.Number, blockCache{Supply: supply, Hash: block.Hash})
 
 	c.log(block.Number, block.Txs, tokenTransfers, block.UncleNo, minted, supply)
-
-	<-wait
 }
 
 func (c *BlockCrawler) syncForkedBlock(b models.Block) {
@@ -205,6 +189,33 @@ func (c *BlockCrawler) syncForkedBlock(b models.Block) {
 type data struct {
 	gasPrice, txFees *big.Int
 	tokenTransfers   int
+}
+
+func (c *BlockCrawler) processUncles(block *models.Block, uncles []models.Uncle) (*big.Int, *big.Int, *big.Int) {
+
+	var (
+		uRewards = new(big.Int)
+	)
+
+	blockReward, uncleRewards, minted := AccumulateRewards(block, uncles)
+
+	for idx, uncle := range uncles {
+
+		uncle.BlockNumber = block.Number
+		uncle.Position = uint64(idx)
+		uncle.Reward = uncleRewards[idx].String()
+
+		uRewards.Add(uRewards, uncleRewards[idx])
+
+		err := c.backend.AddUncle(&uncle)
+
+		if err != nil {
+			c.logger.Error("couldn't add uncle", "uncle", uncle)
+		}
+	}
+
+	return blockReward, uRewards, minted
+
 }
 
 func (c *BlockCrawler) processTransactions(txs []models.RawTransaction, timestamp uint64) (avgGasPrice, txFees *big.Int, tokenTransfers int) {

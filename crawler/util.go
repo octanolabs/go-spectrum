@@ -102,12 +102,13 @@ func startLogger(c chan *logObject, logger log.Logger) {
 	}(c)
 }
 
-func AccumulateRewards(block *models.Block, uncles []models.Uncle) (*big.Int, *big.Int, *big.Int) {
+func AccumulateRewards(block *models.Block, uncles []models.Uncle) (*big.Int, []*big.Int, *big.Int) {
 
 	var (
-		blockNo                   = new(big.Int).SetUint64(block.Number)
-		minted                    = new(big.Int)
-		blockReward, uncleRewards *big.Int
+		blockNo      = new(big.Int).SetUint64(block.Number)
+		minted       = new(big.Int)
+		blockReward  = new(big.Int)
+		uncleRewards = make([]*big.Int, 0)
 	)
 
 	// block reward (miner)
@@ -130,10 +131,10 @@ func AccumulateRewards(block *models.Block, uncles []models.Uncle) (*big.Int, *b
 
 		// add reward for the miner who mined this uncle
 		minted.Add(minted, uncleReward)
-		uncleRewards.Add(uncleRewards, uncleReward)
+		uncleRewards = append(uncleRewards, uncleReward)
 
 		// add reward to block miner for including this uncle (baseBlockReward/32)
-		bonusReward := uncleReward.Div(ufixReward, big32)
+		bonusReward := new(big.Int).Set(uncleReward).Div(ufixReward, big32)
 		blockReward.Add(blockReward, bonusReward)
 	}
 

@@ -1,121 +1,195 @@
 package api
 
 import (
-	"time"
+	"bytes"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"regexp"
+	"strconv"
+	"unicode"
 
 	"github.com/gin-gonic/gin"
-	"github.com/octanolabs/go-spectrum/models"
+
+	json "github.com/json-iterator/go"
 	"github.com/ubiq/go-ubiq/log"
-	"github.com/ubiq/go-ubiq/rpc"
 )
 
-// use unexported interface so it trims some methods we don't want to serve
-type v3api interface {
-	//blocks
-	LatestBlock() (models.Block, error)
-	LatestBlocks(limit int64) ([]models.Block, error)
-	BlockByHash(hash string) (models.Block, error)
-	BlockByNumber(number uint64) (models.Block, error)
-	TransactionsByBlockNumber(number uint64) ([]models.Transaction, error)
-	TotalBlockCount() (int64, error)
+// v3 helper functions
+// TODO: add 404 not found response for requests that don't match
 
-	//uncles
-	LatestUncles(limit int64) ([]models.Uncle, error)
-	UncleByHash(hash string) (models.Uncle, error)
-	TotalUncleCount() (int64, error)
+var legacyHandlers = map[*regexp.Regexp]func(re *regexp.Regexp, url string) (io.Reader, int64, string){
 
-	//reorgs
-	ForkedBlockByNumber(number uint64) (models.Block, error)
-	LatestForkedBlocks(limit int64) ([]models.Block, error)
+	regexp.MustCompile(`^/v3/(?:status)$`): jsonhttphelper("explorer_status"),
 
-	//txs
-	LatestTransactions(limit int64) ([]models.Transaction, error)
-	TransactionByHash(hash string) (models.Transaction, error)
-	LatestTransactionsByAccount(hash string) ([]models.Transaction, error)
-	TransactionByContractAddress(hash string) (models.Transaction, error)
-	TxnCount(hash string) (int64, error)
-	TotalTxnCount() (int64, error)
+	regexp.MustCompile(`^/v3/(?:latest)$`):                        jsonhttphelper("explorer_latestBlock"),
+	regexp.MustCompile(`^/v3/(?:latestblocks)/(?P<params>(.*))$`): jsonhttphelper("explorer_latestBlocks"),
+	regexp.MustCompile(`^/v3/(?:blockbyhash)/(?P<params>(.*))$`):  jsonhttphelper("explorer_blockByHash"),
+	regexp.MustCompile(`^/v3/(?:block)/(?P<params>([^/]*))$`):     jsonhttphelper("explorer_blockByNumber"),
+	regexp.MustCompile(`^/v3/(?:block)/(?P<params>(.*))/txns$`):   jsonhttphelper("explorer_transactionsByBlockNumber"),
 
-	//transfers
-	LatestTokenTransfers(limit int64) ([]models.TokenTransfer, error)
-	LatestTokenTransfersByAccount(account string) ([]models.TokenTransfer, error)
-	TokenTransfersByAccount(token string, account string) ([]models.TokenTransfer, error)
-	TokenTransfersByAccountCount(token string, account string) (int64, error)
-	LatestTransfersOfToken(hash string) ([]models.TokenTransfer, error)
-	ContractTransferCount(hash string) (int64, error)
-	TotalTransferCount() (int64, error)
-	TokenTransferCountByContract(hash string) (int64, error)
+	regexp.MustCompile(`^/v3/(?:latestuncles)/(?P<params>(.*))$`): jsonhttphelper("explorer_latestUncles"),
+	regexp.MustCompile(`^/v3/(?:uncle)/(?P<params>(.*))$`):        jsonhttphelper("explorer_uncleByHash"),
 
-	//misc
-	Status() (models.Store, error)
+	regexp.MustCompile(`^/v3/(?:forkedblock)/(?P<params>(.*))$`):        jsonhttphelper("explorer_forkedBlockByNumber"),
+	regexp.MustCompile(`^/v3/(?:latestforkedblocks)/(?P<params>(.*))$`): jsonhttphelper("explorer_latestForkedBlocks"),
+
+	regexp.MustCompile(`^/v3/(?:latesttransactions)/(?P<params>(.*))$`):    jsonhttphelper("explorer_latestTransactions"),
+	regexp.MustCompile(`^/v3/(?:transaction)/(?P<params>(.*))$`):           jsonhttphelper("explorer_transactionByHash"),
+	regexp.MustCompile(`^/v3/(?:latestaccounttxns)/(?P<params>(.*))$`):     jsonhttphelper("explorer_latestTransactionsByAccount"),
+	regexp.MustCompile(`^/v3/(?:transactionbycontract)/(?P<params>(.*))$`): jsonhttphelper("explorer_transactionByContractAddress"),
+
+	regexp.MustCompile(`^/v3/(?:latesttokentransfers)/(?P<params>(.*))$`):         jsonhttphelper("explorer_latestTokenTransfers"),
+	regexp.MustCompile(`^/v3/(?:latestaccounttokentxns)/(?P<params>(.*))$`):       jsonhttphelper("explorer_latestTokenTransfersByAccount"),
+	regexp.MustCompile(`^/v3/(?:tokentransfersbyaccount)/(?P<params>(.*)/(.*))$`): jsonhttphelper("explorer_tokenTransfersByAccount"),
+	regexp.MustCompile(`^/v3/(?:latesttransfersbytoken)/(?P<params>(.*))$`):       jsonhttphelper("explorer_latestTransfersOfToken"),
+
+	//regexp.MustCompile(`^/(?:charts)/(?P<params>(?P<chart>.)/(?P<limit>.))$`): jsonhttphelper("explorer_"),
+	//regexp.MustCompile(`^/(?:supply)/(?P<params>(?P<symbol>.))$`):             jsonhttphelper("explorer_"),
+	//regexp.MustCompile(`^/(?:(geodata))$`):                                      jsonhttphelper("explorer_"),
 }
 
-func v3RouterHandler(server *rpc.Server) gin.HandlerFunc {
-	return func(context *gin.Context) {
-
-		//TODO: added this for dev. Maybe remove in production
-		context.Request.Header.Set("Access-Control-Allow-Origin", "localhost:8080")
-
-		server.ServeHTTP(context.Writer, context.Request)
-	}
-}
-
-func jsonParserMiddleware() gin.HandlerFunc {
-	return func(context *gin.Context) {
-		method, params, newReader := ParseJsonRequest(context.Request)
-
-		context.Request.Body = newReader
-		context.Set("method", method)
-		context.Set("params", params)
-	}
-}
-
-//func jsonLoggerMiddleware() gin.HandlerFunc {
-//	return gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
-//
-//		//your custom format
-//		return fmt.Sprintf("%s - [%d][%s] \t %s | \t %s - %s | %s | %s\t-\t%s\n",
-//			param.TimeStamp.Format(time.RFC1123),
-//			param.StatusCode,
-//			param.Method,
-//			param.Latency,
-//			param.ClientIP,
-//			param.Request.UserAgent(),
-//			param.Path,
-//			param.Keys["method"],
-//			param.Keys["params"],
-//		)
-//	})
-//}
-
-func jsonLoggerMiddleware(logger log.Logger) gin.HandlerFunc {
-	return func(context *gin.Context) {
-		start := time.Now()
-
-		context.Next()
-
-		if _, ok := context.Params.Get("method"); ok {
-
-			if _, ok = context.Params.Get("params"); ok {
-				logger.Info("received http request",
-					"path", context.Request.URL.Path,
-					"status", context.Writer.Status(),
-					"method", context.Request.Method,
-					"latency", time.Since(start),
-					"from", context.Request.RemoteAddr,
-					"agent", context.Request.UserAgent(),
-					"rpcMethod", context.Param("method"),
-					"rpcParams", context.Param("params"))
+func jsonhttphelper(method string) func(*regexp.Regexp, string) (io.Reader, int64, string) {
+	return func(re *regexp.Regexp, url string) (io.Reader, int64, string) {
+		var (
+			expanded []byte
+			result   []byte
+			fields   [][]byte
+			req      struct {
+				Id      int           `json:"id"`
+				JsonRpc string        `json:"json_rpc"`
+				Method  string        `json:"method"`
+				Params  []interface{} `json:"params"`
 			}
-		} else {
-			logger.Info("received http request",
-				"path", context.Request.URL.Path,
-				"status", context.Writer.Status(),
-				"method", context.Request.Method,
-				"latency", time.Since(start),
-				"from", context.Request.RemoteAddr,
-				"agent", context.Request.UserAgent())
+		)
+
+		template := "${params}"
+
+		// For each match of the regex in the content.
+		for _, submatches := range re.FindAllStringSubmatchIndex(url, -1) {
+			// Apply the captured submatches to the template and append the output
+			// to the result.
+			expanded = re.ExpandString(expanded, template, url, submatches)
 		}
 
+		fields = bytes.FieldsFunc(expanded, func(c rune) bool { return !unicode.IsLetter(c) && !unicode.IsNumber(c) })
+
+		req.Id = 88
+		req.JsonRpc = "2.0"
+		req.Method = method
+		req.Params = make([]interface{}, len(fields))
+
+		for k, v := range fields {
+			num, err := strconv.ParseInt(string(v), 10, 64)
+			if err != nil {
+				if _, ok := err.(*strconv.NumError); ok {
+					log.Debug("Param is not number, setting as string", "method", method, "value", string(v))
+					req.Params[k] = string(v)
+				} else {
+					log.Debug("Unexpected error converting param, setting as string", "method", method, "value", string(v), "err", err)
+					req.Params[k] = string(v)
+				}
+			} else {
+				req.Params[k] = num
+			}
+		}
+
+		result, err := json.Marshal(req)
+		if err != nil {
+			log.Error("Error: couldn't parse regex", "err", err)
+		}
+
+		return io.LimitReader(bytes.NewReader(result), int64(len(result))), int64(len(result)), method
 	}
+}
+
+func ConvertJSONHTTPReq(r *http.Request) (io.ReadCloser, int64, string) {
+
+	var (
+		res    io.Reader
+		length int64
+		method string
+	)
+
+	for k, handler := range legacyHandlers {
+		if k.MatchString(r.URL.Path) {
+			res, length, method = handler(k, r.URL.Path)
+		}
+	}
+
+	return ioutil.NopCloser(res), length, method
+}
+
+func ParseJsonRequest(r *http.Request) (string, []json.RawMessage, io.ReadCloser) {
+
+	var (
+		b   = make([]byte, r.ContentLength)
+		req struct {
+			Method string            `json:"method"`
+			Params []json.RawMessage `json:"params"`
+		}
+	)
+
+	b, err := ioutil.ReadAll(io.LimitReader(r.Body, r.ContentLength))
+	if err != nil {
+		log.Error("Util: couldn't write request body to buffer", "err", err)
+	}
+
+	err = json.Unmarshal(b, &req)
+
+	if err != nil {
+		log.Error("Error: couldn't unmarshal body", "err", err)
+	}
+
+	return req.Method, req.Params, ioutil.NopCloser(bytes.NewReader(b))
+
+}
+
+// v3 handlers
+
+// explorer_latestBlocks explorer_latestUncles explorer_latestTransactions explorer_latestTokenTransfers
+// for these 4 methods the legacy api returned the totals for these collections, and we append that info
+// directly into response via v3ConvertResponseWriter
+
+func v3ConvertRequest() gin.HandlerFunc {
+	return func(context *gin.Context) {
+		newReader, length, method := ConvertJSONHTTPReq(context.Request)
+
+		l := strconv.FormatInt(length, 10)
+
+		context.Request.Body = newReader
+		context.Request.ContentLength = length
+		context.Request.Header.Set("Content-Length", l)
+		context.Request.Header.Set("Content-Type", "application/json")
+
+		context.Set("method", method)
+
+	}
+}
+
+func v3ConvertResponse() gin.HandlerFunc {
+	return func(context *gin.Context) {
+		context.Writer = v3ConvertResponseWriter{ResponseWriter: context.Writer}
+	}
+}
+
+type v3ConvertResponseWriter struct {
+	gin.ResponseWriter
+}
+
+func (r v3ConvertResponseWriter) Write(b []byte) (int, error) {
+
+	var (
+		req struct {
+			Body json.RawMessage `json:"result"`
+		}
+	)
+
+	err := json.Unmarshal(b, &req)
+
+	if err != nil {
+		log.Error("Error: couldn't marshal response body", "err", err)
+	}
+
+	return r.ResponseWriter.Write(req.Body)
 }
