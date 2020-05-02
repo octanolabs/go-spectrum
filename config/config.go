@@ -8,11 +8,11 @@ import (
 )
 
 type Config struct {
-	Threads int            `json:"threads"`
-	Crawler crawler.Config `json:"crawler"`
-	Mongo   storage.Config `json:"mongo"`
-	Rpc     rpc.Config     `json:"rpc"`
-	Api     api.Config     `json:"api"`
+	Threads  int            `json:"threads"`
+	Crawlers crawler.Config `json:"crawlers"`
+	Mongo    storage.Config `json:"mongo"`
+	Rpc      rpc.Config     `json:"rpc"`
+	Api      api.Config     `json:"api"`
 }
 
 // {

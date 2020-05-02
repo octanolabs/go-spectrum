@@ -109,8 +109,8 @@ func main() {
 
 	rpcClient := rpc.NewRPCClient(&cfg.Rpc)
 
-	if cfg.Crawler.Enabled {
-		go startCrawler(mongo, &cfg.Crawler, appLogger.New("pkg", "crawler"), rpcClient)
+	if cfg.Crawlers.Enabled {
+		go startCrawlers(mongo, &cfg.Crawlers, appLogger, rpcClient)
 	} else if cfg.Api.Enabled {
 		go startApi(mongo, &cfg.Api, appLogger.New("pkg", "api"))
 	}

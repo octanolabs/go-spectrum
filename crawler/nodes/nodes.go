@@ -1,4 +1,4 @@
-package crawler
+package nodes
 
 import (
 	"net"
@@ -18,11 +18,16 @@ import (
 
 type NodeCrawler struct {
 	backend *storage.MongoDB
+	cfg     *Config
 	logger  log.Logger
 }
 
+type Config struct {
+	Enabled bool `json:"enabled"`
+}
+
 func NewNodeCrawler(db *storage.MongoDB, cfg *Config, logger log.Logger) *NodeCrawler {
-	return &NodeCrawler{db, logger}
+	return &NodeCrawler{db, cfg, logger}
 }
 
 func (n *NodeCrawler) Start() {

@@ -1,4 +1,4 @@
-package crawler
+package block
 
 import (
 	"errors"
@@ -14,8 +14,13 @@ import (
 	"github.com/octanolabs/go-spectrum/syncronizer"
 )
 
-func (c *BlockCrawler) SyncLoop() {
+func (c *Crawler) RunLoop() {
 	var currentBlock uint64
+
+	if c.state.syncing {
+		c.logger.Warn("Sync already in progress; quitting.")
+		return
+	}
 
 	c.logChan = make(chan *logObject)
 
@@ -91,7 +96,7 @@ func (c *BlockCrawler) SyncLoop() {
 	close(c.logChan)
 }
 
-func (c *BlockCrawler) syncBlock(block models.Block, task *syncronizer.Task) {
+func (c *Crawler) syncBlock(block models.Block, task *syncronizer.Task) {
 
 	var (
 		uncles              = make([]models.Uncle, 0)
@@ -164,7 +169,7 @@ func (c *BlockCrawler) syncBlock(block models.Block, task *syncronizer.Task) {
 	c.log(block.Number, block.Txs, tokenTransfers, block.UncleNo, minted, supply)
 }
 
-func (c *BlockCrawler) syncForkedBlock(b models.Block) {
+func (c *Crawler) syncForkedBlock(b models.Block) {
 
 	reorgHeight := b.Number - 1
 
@@ -191,7 +196,7 @@ type data struct {
 	tokenTransfers   int
 }
 
-func (c *BlockCrawler) processUncles(block *models.Block, uncles []models.Uncle) (*big.Int, *big.Int, *big.Int) {
+func (c *Crawler) processUncles(block *models.Block, uncles []models.Uncle) (*big.Int, *big.Int, *big.Int) {
 
 	var (
 		uRewards = new(big.Int)
@@ -218,7 +223,7 @@ func (c *BlockCrawler) processUncles(block *models.Block, uncles []models.Uncle)
 
 }
 
-func (c *BlockCrawler) processTransactions(txs []models.RawTransaction, timestamp uint64) (avgGasPrice, txFees *big.Int, tokenTransfers int) {
+func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uint64) (avgGasPrice, txFees *big.Int, tokenTransfers int) {
 
 	data := &data{
 		gasPrice:       big.NewInt(0),
@@ -280,7 +285,7 @@ func (c *BlockCrawler) processTransactions(txs []models.RawTransaction, timestam
 	return data.gasPrice.Div(data.gasPrice, big.NewInt(int64(len(txs)))), data.txFees, data.tokenTransfers
 }
 
-func (c *BlockCrawler) processTransaction(tx *models.Transaction, receipt models.TxReceipt, data *data) {
+func (c *Crawler) processTransaction(tx *models.Transaction, receipt models.TxReceipt, data *data) {
 
 	txGasPrice := big.NewInt(0).SetUint64(tx.GasPrice)
 
@@ -304,7 +309,7 @@ func (c *BlockCrawler) processTransaction(tx *models.Transaction, receipt models
 
 }
 
-func (c *BlockCrawler) processTokenTransfer(transfer *models.TokenTransfer, tx *models.Transaction) {
+func (c *Crawler) processTokenTransfer(transfer *models.TokenTransfer, tx *models.Transaction) {
 
 	// Setting status here as we need to wait for the tx in the previous link to be processed
 	transfer.Status = tx.Status
@@ -316,7 +321,7 @@ func (c *BlockCrawler) processTokenTransfer(transfer *models.TokenTransfer, tx *
 
 }
 
-func (c *BlockCrawler) getPreviousBlock(blockNumber uint64) (blockCache, error) {
+func (c *Crawler) getPreviousBlock(blockNumber uint64) (blockCache, error) {
 
 	// get parent block info from cache
 
@@ -337,7 +342,7 @@ func (c *BlockCrawler) getPreviousBlock(blockNumber uint64) (blockCache, error) 
 	}
 }
 
-func (c *BlockCrawler) handleReorg(b models.Block) {
+func (c *Crawler) handleReorg(b models.Block) {
 
 	// a reorg has occured
 	c.logger.Warn("reorg detected", "height", b.Number-1)
@@ -353,7 +358,7 @@ func (c *BlockCrawler) handleReorg(b models.Block) {
 
 }
 
-func (c *BlockCrawler) log(blockNo uint64, txns, transfers, uncles int, minted *big.Int, supply *big.Int) {
+func (c *Crawler) log(blockNo uint64, txns, transfers, uncles int, minted *big.Int, supply *big.Int) {
 	c.logChan <- &logObject{
 		blockNo:        blockNo,
 		txns:           txns,

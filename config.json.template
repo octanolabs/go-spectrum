@@ -1,10 +1,16 @@
 
 {
   "threads":4,
-  "crawler": {
+  "crawlers": {
     "enabled": true,
     "interval": "500ms",
-    "routines": 5
+    "block_crawler": {
+        "enabled": true,
+        "routines": 5
+    },
+    "db_crawler": {
+       "enabled": false
+    },
   },
   "api": {
     "enabled": false,

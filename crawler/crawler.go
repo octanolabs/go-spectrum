@@ -1,99 +1,50 @@
 package crawler
 
 import (
-	"math/big"
-	"net/url"
+	"github.com/octanolabs/go-spectrum/crawler/block"
+	"github.com/octanolabs/go-spectrum/crawler/database"
+	"github.com/ubiq/go-ubiq/log"
 	"os"
 	"time"
-
-	"github.com/octanolabs/go-spectrum/storage"
-
-	lru "github.com/hashicorp/golang-lru"
-	"github.com/octanolabs/go-spectrum/rpc"
-	"github.com/ubiq/go-ubiq/log"
 )
 
-const (
-	blockCacheLimit = 10
-)
-
-type blockCache struct {
-	Supply *big.Int `json:"supply"`
-	Hash   string   `json:"hash"`
+type Crawler interface {
+	RunLoop()
 }
 
 type Config struct {
-	Enabled     bool   `json:"enabled"`
-	Interval    string `json:"interval"`
-	MaxRoutines int    `json:"routines"`
-	NodeCrawler bool   `json:"node_crawler"`
+	Enabled         bool            `json:"enabled"`
+	Interval        string          `json:"interval"`
+	BlockCrawler    block.Config    `json:"blocks"`
+	DatabaseCrawler database.Config `json:"database"`
 }
 
-type BlockCrawler struct {
-	backend *storage.MongoDB
-	rpc     *rpc.RPCClient
-	cfg     *Config
-	logChan chan *logObject
-	state   struct {
-		syncing bool
-		reorg   bool
+func runCrawlers(crawlers []Crawler) {
+	for _, v := range crawlers {
+		go v.RunLoop()
 	}
-	blockCache *lru.Cache // Cache for the most recent blocks
-	logger     log.Logger
 }
 
-func NewBlockCrawler(db *storage.MongoDB, cfg *Config, logger log.Logger, rpc *rpc.RPCClient) *BlockCrawler {
-	bc, _ := lru.New(blockCacheLimit)
+func RunCrawlers(crawlers []Crawler, cfg *Config, logger log.Logger) {
 
-	if cfg.NodeCrawler {
-		nc := NewNodeCrawler(db, cfg, logger.New("pkg", "crawler/node_crawler"))
-
-		nc.Start()
-	}
-
-	return &BlockCrawler{db, rpc, cfg, make(chan *logObject), struct{ syncing, reorg bool }{false, false}, bc, logger}
-}
-
-func (c *BlockCrawler) Start() {
-	c.logger.Info("Starting block BlockCrawler")
-
-	err := c.rpc.Ping()
-
+	interval, err := time.ParseDuration(cfg.Interval)
 	if err != nil {
-		if err == err.(*url.Error) {
-			c.logger.Error("Gubiq node offline", "err", err)
-			os.Exit(1)
-		} else {
-			c.logger.Error("Error pinging rpc node", "err", err)
-		}
-	}
-
-	if c.backend.IsFirstRun() {
-		c.backend.Init()
-	}
-
-	interval, err := time.ParseDuration(c.cfg.Interval)
-	if err != nil {
-		c.logger.Error("can't parse duration", "err", err)
+		logger.Error("can't parse duration", "err", err)
 		os.Exit(1)
 	}
 
 	ticker := time.NewTicker(interval)
 
-	c.logger.Info("refresh interval set", "d", interval)
+	logger.Info("refresh interval set", "d", interval)
 
-	go c.SyncLoop()
+	runCrawlers(crawlers)
 
 	go func() {
 		for {
 			select {
 			case <-ticker.C:
-				c.logger.Debug("loop iteration", "syncing", c.state.syncing)
-				if c.state.syncing != true {
-					go c.SyncLoop()
-				}
+				runCrawlers(crawlers)
 			}
 		}
 	}()
-
 }
