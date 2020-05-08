@@ -75,12 +75,12 @@ func (m *MongoDB) TotalUncleCount() (int64, error) {
 func (m *MongoDB) ForkedBlockByNumber(number uint64) (models.Block, error) {
 	var block models.Block
 
-	err := m.C(models.REORGS).FindOne(context.Background(), bson.M{"number": number}, options.FindOne()).Decode(&block)
+	err := m.C(models.FORKEDBLOCKS).FindOne(context.Background(), bson.M{"number": number}, options.FindOne()).Decode(&block)
 	return block, err
 }
 
 func (m *MongoDB) TotalForkedBlockCount() (int64, error) {
-	count, err := m.C(models.REORGS).CountDocuments(context.Background(), bson.M{}, options.Count())
+	count, err := m.C(models.FORKEDBLOCKS).CountDocuments(context.Background(), bson.M{}, options.Count())
 
 	return count, err
 }

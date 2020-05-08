@@ -9,42 +9,32 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func (m *MongoDB) CrawlTransactions() (*mongo.Cursor, error) {
+func (m *MongoDB) IterTransactions() (*mongo.Cursor, error) {
 
-	query := []bson.M{{"$sort": bson.M{"blockNumber": 1}}}
-
-	return m.C(models.TXNS).Find(context.Background(), query, options.Find())
+	return m.C(models.TXNS).Find(context.Background(), bson.M{}, options.Find().SetSort(bson.D{{"blockNumber", 1}}))
 
 }
 
-func (m *MongoDB) CrawlBlocks() (*mongo.Cursor, error) {
+func (m *MongoDB) IterBlocks() (*mongo.Cursor, error) {
 
-	query := []bson.M{{"$sort": bson.M{"number": 1}}}
-
-	return m.C(models.BLOCKS).Find(context.Background(), query, options.Find())
+	return m.C(models.BLOCKS).Find(context.Background(), bson.M{}, options.Find().SetHint(bson.M{"number": 1}).SetSort(bson.D{{"number", 1}}))
 
 }
 
-func (m *MongoDB) CrawlReorgs() (*mongo.Cursor, error) {
+func (m *MongoDB) IterForkedBlocks() (*mongo.Cursor, error) {
 
-	query := []bson.M{{"$sort": bson.M{"number": 1}}}
-
-	return m.C(models.REORGS).Find(context.Background(), query, options.Find())
+	return m.C(models.FORKEDBLOCKS).Find(context.Background(), bson.M{}, options.Find().SetSort(bson.D{{"blockNumber", 1}}))
 
 }
 
-func (m *MongoDB) CrawlUncles() (*mongo.Cursor, error) {
+func (m *MongoDB) IterUncles() (*mongo.Cursor, error) {
 
-	query := []bson.M{{"$sort": bson.M{"blockNumber": 1}}}
-
-	return m.C(models.UNCLES).Find(context.Background(), query, options.Find())
+	return m.C(models.UNCLES).Find(context.Background(), bson.M{}, options.Find().SetSort(bson.D{{"blockNumber", 1}}))
 
 }
 
-func (m *MongoDB) CrawlTokenTransfers() (*mongo.Cursor, error) {
+func (m *MongoDB) IterTokenTransfers() (*mongo.Cursor, error) {
 
-	query := []bson.M{{"$sort": bson.M{"blockNumber": 1}}}
-
-	return m.C(models.TRANSFERS).Find(context.Background(), query, options.Find())
+	return m.C(models.TRANSFERS).Find(context.Background(), bson.M{}, options.Find().SetSort(bson.D{{"blockNumber", 1}}))
 
 }

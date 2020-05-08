@@ -7,14 +7,14 @@ import (
 )
 
 const (
-	BLOCKS    = "blocks"
-	TXNS      = "transactions"
-	UNCLES    = "uncles"
-	TRANSFERS = "tokentransfers"
-	REORGS    = "forkedblocks"
-	CHARTS    = "charts"
-	STORE     = "sysstores"
-	ENODES    = "enodes"
+	BLOCKS       = "blocks"
+	TXNS         = "transactions"
+	UNCLES       = "uncles"
+	TRANSFERS    = "tokentransfers"
+	FORKEDBLOCKS = "forkedblocks"
+	CHARTS       = "charts"
+	STORE        = "sysstores"
+	ENODES       = "enodes"
 )
 
 type Store struct {
@@ -36,4 +36,10 @@ type Enode struct {
 	Name string   `json:"name"`
 	TCP  int      `json:"tcp"`
 	UDP  int      `json:"tcp"`
+}
+
+type Chart struct {
+	Name       string      `bson:"name" json:"name"`
+	Series     interface{} `bson:"series" json:"series"`
+	Timestamps []string    `bson:"timestamps" json:"timestamps"`
 }

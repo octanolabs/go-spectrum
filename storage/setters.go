@@ -44,7 +44,7 @@ func (m *MongoDB) AddBlock(b *models.Block) error {
 }
 
 func (m *MongoDB) AddForkedBlock(b *models.Block) error {
-	collection := m.C(models.REORGS)
+	collection := m.C(models.FORKEDBLOCKS)
 
 	if _, err := collection.InsertOne(context.Background(), b, options.InsertOne()); err != nil {
 		return err

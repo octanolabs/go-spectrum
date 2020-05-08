@@ -3,6 +3,7 @@ package database
 import (
 	"github.com/octanolabs/go-spectrum/storage"
 	"github.com/ubiq/go-ubiq/log"
+	"time"
 )
 
 type Crawler struct {
@@ -24,5 +25,75 @@ func (c *Crawler) Start() {
 }
 
 func (c *Crawler) RunLoop() {
-	c.logger.Info("Looping database crawler")
+	c.logger.Info("Crawling Database")
+
+	s := time.Now()
+
+	c.CrawlBlocks()
+
+	c.logger.Info("Crawled blocks", "took", time.Since(s))
 }
+
+//func (c *Crawler) CrawlTransactions() {
+//
+//	cursor, err := c.backend.IterTransactions()
+//	if err != nil {
+//		c.logger.Error("Error creating iter", "err", err)
+//	}
+//
+//	c.handleCursor(cursor, func(cursor *mongo.Cursor, task *syncronizer.Task) {
+//		var block models.Block
+//		if err := cursor.Decode(&block); err != nil {
+//			c.logger.Error("Error decoding bloc", "err", err)
+//		}
+//	})
+//
+//}
+//
+//func (c *Crawler) CrawlTokenTransfers() {
+//
+//	cursor, err := c.backend.IterTokenTransfers()
+//	if err != nil {
+//		c.logger.Error("Error creating iter", "err", err)
+//	}
+//
+//	c.handleCursor(cursor, func(cursor *mongo.Cursor, task *syncronizer.Task) {
+//		var block models.Block
+//		if err := cursor.Decode(&block); err != nil {
+//			c.logger.Error("Error decoding bloc", "err", err)
+//		}
+//	})
+//
+//}
+//
+//func (c *Crawler) CrawlUncles() {
+//
+//	cursor, err := c.backend.IterUncles()
+//	if err != nil {
+//		c.logger.Error("Error creating iter", "err", err)
+//	}
+//
+//	c.handleCursor(cursor, func(cursor *mongo.Cursor, task *syncronizer.Task) {
+//		var block models.Block
+//		if err := cursor.Decode(&block); err != nil {
+//			c.logger.Error("Error decoding bloc", "err", err)
+//		}
+//	})
+//
+//}
+//
+//func (c *Crawler) CrawlForkedBlocks() {
+//
+//	cursor, err := c.backend.IterForkedBlocks()
+//	if err != nil {
+//		c.logger.Error("Error creating iter", "err", err)
+//
+//		c.handleCursor(cursor, func(cursor *mongo.Cursor, task *syncronizer.Task) {
+//			var block models.Block
+//			if err := cursor.Decode(&block); err != nil {
+//				c.logger.Error("Error decoding bloc", "err", err)
+//			}
+//		})
+//	}
+//
+//}
