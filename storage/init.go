@@ -70,8 +70,8 @@ func (m *MongoDB) initIndexes() {
 
 	iv := m.C(models.BLOCKS).Indexes()
 
-	bnIdxModel := mongo.IndexModel{bson.M{"number": 1}, options.Index().SetName("blocksNumberIndex").SetUnique(true).SetBackground(true)}
-	bhIdxModel := mongo.IndexModel{bson.M{"hash": 1}, options.Index().SetName("blocksHashIndex").SetUnique(true).SetBackground(true)}
+	bnIdxModel := mongo.IndexModel{Keys: bson.M{"number": 1}, Options: options.Index().SetName("blocksNumberIndex").SetUnique(true).SetBackground(true)}
+	bhIdxModel := mongo.IndexModel{Keys: bson.M{"hash": 1}, Options: options.Index().SetName("blocksHashIndex").SetUnique(true).SetBackground(true)}
 
 	_, err := iv.CreateMany(context.Background(), []mongo.IndexModel{bnIdxModel, bhIdxModel}, options.CreateIndexes())
 
@@ -79,9 +79,9 @@ func (m *MongoDB) initIndexes() {
 		log.Error("could not init indexes for blocks", "err", err)
 	}
 
-	iv = m.C(models.REORGS).Indexes()
+	iv = m.C(models.FORKEDBLOCKS).Indexes()
 
-	rIdxModel := mongo.IndexModel{bson.M{"hash": 1}, options.Index().SetName("reorgsIndex").SetUnique(true).SetBackground(true)}
+	rIdxModel := mongo.IndexModel{Keys: bson.M{"hash": 1}, Options: options.Index().SetName("reorgsIndex").SetUnique(true).SetBackground(true)}
 
 	_, err = iv.CreateOne(context.Background(), rIdxModel, options.CreateIndexes())
 
@@ -91,7 +91,7 @@ func (m *MongoDB) initIndexes() {
 
 	iv = m.C(models.UNCLES).Indexes()
 
-	uIdxModel := mongo.IndexModel{bson.M{"hash": 1}, options.Index().SetName("unclesIndex").SetUnique(true).SetBackground(true)}
+	uIdxModel := mongo.IndexModel{Keys: bson.M{"hash": 1}, Options: options.Index().SetName("unclesIndex").SetUnique(true).SetBackground(true)}
 
 	_, err = iv.CreateOne(context.Background(), uIdxModel, options.CreateIndexes())
 
@@ -101,11 +101,11 @@ func (m *MongoDB) initIndexes() {
 
 	iv = m.C(models.TXNS).Indexes()
 
-	txHIdxModel := mongo.IndexModel{bson.M{"hash": 1}, options.Index().SetName("txHashIndex").SetUnique(true).SetBackground(true)}
-	txBNIdxModel := mongo.IndexModel{bson.M{"blockNumber": 1}, options.Index().SetName("txBlockNumberIndex").SetBackground(true)}
-	txFIdxModel := mongo.IndexModel{bson.M{"from": 1}, options.Index().SetName("txFromIndex").SetBackground(true)}
-	txTIdxModel := mongo.IndexModel{bson.M{"to": 1}, options.Index().SetName("txToIndex").SetBackground(true)}
-	txCAIdxModel := mongo.IndexModel{bson.M{"contractAddress": 1}, options.Index().SetName("txContractAddressIndex").SetBackground(true)}
+	txHIdxModel := mongo.IndexModel{Keys: bson.M{"hash": 1}, Options: options.Index().SetName("txHashIndex").SetUnique(true).SetBackground(true)}
+	txBNIdxModel := mongo.IndexModel{Keys: bson.M{"blockNumber": 1}, Options: options.Index().SetName("txBlockNumberIndex").SetBackground(true)}
+	txFIdxModel := mongo.IndexModel{Keys: bson.M{"from": 1}, Options: options.Index().SetName("txFromIndex").SetBackground(true)}
+	txTIdxModel := mongo.IndexModel{Keys: bson.M{"to": 1}, Options: options.Index().SetName("txToIndex").SetBackground(true)}
+	txCAIdxModel := mongo.IndexModel{Keys: bson.M{"contractAddress": 1}, Options: options.Index().SetName("txContractAddressIndex").SetBackground(true)}
 
 	_, err = iv.CreateMany(context.Background(), []mongo.IndexModel{txBNIdxModel, txHIdxModel, txFIdxModel, txTIdxModel, txCAIdxModel}, options.CreateIndexes())
 
@@ -115,11 +115,11 @@ func (m *MongoDB) initIndexes() {
 
 	iv = m.C(models.TRANSFERS).Indexes()
 
-	trBNIdxModel := mongo.IndexModel{bson.M{"blockNumber": 1}, options.Index().SetName("trBlockNumberIndex").SetBackground(true)}
-	trHIdxModel := mongo.IndexModel{bson.M{"hash": 1}, options.Index().SetName("trTxHashIndex").SetBackground(true)}
-	trFIdxModel := mongo.IndexModel{bson.M{"from": 1}, options.Index().SetName("trFromIndex").SetBackground(true)}
-	trTIdxModel := mongo.IndexModel{bson.M{"to": 1}, options.Index().SetName("trToIndex").SetBackground(true)}
-	trCIdxModel := mongo.IndexModel{bson.M{"contract": 1}, options.Index().SetName("trContractIndex").SetBackground(true)}
+	trBNIdxModel := mongo.IndexModel{Keys: bson.M{"blockNumber": 1}, Options: options.Index().SetName("trBlockNumberIndex").SetBackground(true)}
+	trHIdxModel := mongo.IndexModel{Keys: bson.M{"hash": 1}, Options: options.Index().SetName("trTxHashIndex").SetBackground(true)}
+	trFIdxModel := mongo.IndexModel{Keys: bson.M{"from": 1}, Options: options.Index().SetName("trFromIndex").SetBackground(true)}
+	trTIdxModel := mongo.IndexModel{Keys: bson.M{"to": 1}, Options: options.Index().SetName("trToIndex").SetBackground(true)}
+	trCIdxModel := mongo.IndexModel{Keys: bson.M{"contract": 1}, Options: options.Index().SetName("trContractIndex").SetBackground(true)}
 
 	_, err = iv.CreateMany(context.Background(), []mongo.IndexModel{trBNIdxModel, trHIdxModel, trFIdxModel, trTIdxModel, trCIdxModel}, options.CreateIndexes())
 
@@ -129,9 +129,19 @@ func (m *MongoDB) initIndexes() {
 
 	iv = m.C(models.ENODES).Indexes()
 
-	enodeModel := mongo.IndexModel{bson.M{"raw_enode": 1}, options.Index().SetName("enodeIndex").SetUnique(true).SetBackground(true)}
+	enodeModel := mongo.IndexModel{Keys: bson.M{"raw_enode": 1}, Options: options.Index().SetName("enodeIndex").SetUnique(true).SetBackground(true)}
 
 	_, err = iv.CreateOne(context.Background(), enodeModel, options.CreateIndexes())
+
+	if err != nil {
+		log.Error("could not init indexes for enodes", "err", err)
+	}
+
+	iv = m.C(models.CHARTS).Indexes()
+
+	chartsModel := mongo.IndexModel{Keys: bson.M{"name": 1}, Options: options.Index().SetName("nameIndex").SetUnique(true).SetBackground(true)}
+
+	_, err = iv.CreateOne(context.Background(), chartsModel, options.CreateIndexes())
 
 	if err != nil {
 		log.Error("could not init indexes for enodes", "err", err)

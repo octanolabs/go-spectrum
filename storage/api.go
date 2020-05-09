@@ -66,7 +66,7 @@ func (m *MongoDB) LatestForkedBlocks(limit int64) (map[string]interface{}, error
 		return result, err
 	}
 
-	c, err := m.C(models.REORGS).Find(context.Background(), bson.M{}, options.Find().SetSort(bson.D{{"number", -1}}).SetLimit(limit))
+	c, err := m.C(models.FORKEDBLOCKS).Find(context.Background(), bson.M{}, options.Find().SetSort(bson.D{{"number", -1}}).SetLimit(limit))
 
 	if err != nil {
 		return result, err
