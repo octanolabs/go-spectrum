@@ -33,13 +33,13 @@ func RunCrawlers(crawlers map[string]Crawler, cfg *Config, logger log.Logger) {
 	if bCrawler, ok := crawlers["blocks"]; ok {
 		blockInterval, err := time.ParseDuration(cfg.BlockCrawler.Interval)
 		if err != nil {
-			logger.Error("can't parse duration", "err", err)
+			logger.Error("can't parse blockCrawler duration", "d", cfg.BlockCrawler.Interval, "err", err)
 			os.Exit(1)
 		}
 
 		blockTicker := time.NewTicker(blockInterval)
 
-		logger.Info("blockCrawler interval set", "d", blockTicker)
+		logger.Warn("blockCrawler interval set", "d", cfg.BlockCrawler.Interval)
 
 		go runCrawler(blockTicker, bCrawler)
 	}
@@ -47,13 +47,13 @@ func RunCrawlers(crawlers map[string]Crawler, cfg *Config, logger log.Logger) {
 	if dbCrawler, ok := crawlers["database"]; ok {
 		databaseInterval, err := time.ParseDuration(cfg.DatabaseCrawler.Interval)
 		if err != nil {
-			logger.Error("can't parse duration", "err", err)
+			logger.Error("can't parse dbCrawler duration", "d", cfg.DatabaseCrawler.Interval, "err", err)
 			os.Exit(1)
 		}
 
 		databaseTicker := time.NewTicker(databaseInterval)
 
-		logger.Info("dbCrawler interval set", "d", databaseTicker)
+		logger.Warn("dbCrawler interval set", "d", cfg.DatabaseCrawler.Interval)
 
 		go runCrawler(databaseTicker, dbCrawler)
 	}

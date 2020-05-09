@@ -165,39 +165,39 @@ func (c *Crawler) CrawlBlocks() {
 
 	}
 
-	c.logger.Info("gathered chart data")
+	c.logger.Info("gathered chart data", "from", dates[0], "to", dates[len(dates)-1])
 
-	c.logger.Info("added chart: gasPrice", "n", len(avgGasPrice))
+	c.logger.Info("added chart: gasPrice")
 	err = c.backend.AddChart("avgGasPrice", avgGasPrice, dates)
 	if err != nil {
 		c.logger.Error("error adding avgGasPrice chart", "err", err)
 	}
 
-	c.logger.Info("added chart: difficulty", "n", len(difficulty))
+	c.logger.Info("added chart: difficulty")
 	err = c.backend.AddChart("difficulty", difficulty, dates)
 	if err != nil {
 		c.logger.Error("error adding difficulty chart", "err", err)
 	}
 
-	c.logger.Info("added chart: blocks", "n", len(blocks))
+	c.logger.Info("added chart: blocks")
 	err = c.backend.AddChart("blocks", blocks, dates)
 	if err != nil {
 		c.logger.Error("error adding blocks chart", "err", err)
 	}
 
-	c.logger.Info("added chart: gasLimit", "n", len(gasLimit))
+	c.logger.Info("added chart: gasLimit")
 	err = c.backend.AddChart("gasLimit", gasLimit, dates)
 	if err != nil {
 		c.logger.Error("error adding chart ", "err", err)
 	}
 
-	c.logger.Info("added chart: blockTime", "n", len(blockTime))
+	c.logger.Info("added chart: blockTime")
 	err = c.backend.AddChart("blockTime", blockTime, dates)
 	if err != nil {
 		c.logger.Error("error adding gasLimit chart", "err", err)
 	}
 
-	c.logger.Info("added chart: transactions", "n", len(transactions))
+	c.logger.Info("added chart: transactions")
 	err = c.backend.AddChart("transactions", transactions, dates)
 	if err != nil {
 		c.logger.Error("error adding blockTime chart", "err", err)
@@ -216,7 +216,7 @@ func (c *Crawler) CrawlBlocks() {
 		}
 	}
 
-	c.logger.Info("added charts for miners", "n", len(list))
+	c.logger.Info("added miner charts", "miners", len(list))
 	err = c.backend.AddChart("miners", list, dates)
 	if err != nil {
 		c.logger.Error("error adding miners chart", "err", err)

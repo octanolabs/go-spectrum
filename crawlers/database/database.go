@@ -26,13 +26,11 @@ func (c *Crawler) Start() {
 }
 
 func (c *Crawler) RunLoop() {
-	c.logger.Info("Crawling Database")
-
 	s := time.Now()
 
 	c.CrawlBlocks()
 
-	c.logger.Info("Crawled blocks", "took", time.Since(s))
+	c.logger.Info("crawled blocks collection", "took", time.Since(s))
 }
 
 //func (c *Crawler) CrawlTransactions() {
