@@ -60,3 +60,16 @@ func (m *MongoDB) AddEnodes(e *models.Enode) error {
 	}
 	return nil
 }
+
+func (m *MongoDB) AddChart(name string, series interface{}, stamps []string) error {
+	collection := m.C(models.CHARTS)
+
+	if _, err := collection.InsertOne(context.Background(), &models.Chart{
+		Name:       name,
+		Series:     series,
+		Timestamps: stamps,
+	}, options.InsertOne()); err != nil {
+		return err
+	}
+	return nil
+}
