@@ -72,7 +72,7 @@ func (m *MongoDB) initIndexes() {
 
 	bnIdxModel := mongo.IndexModel{Keys: bson.M{"number": 1}, Options: options.Index().SetName("blocksNumberIndex").SetUnique(true).SetBackground(true)}
 	bhIdxModel := mongo.IndexModel{Keys: bson.M{"hash": 1}, Options: options.Index().SetName("blocksHashIndex").SetUnique(true).SetBackground(true)}
-	minerIdxModel := mongo.IndexModel{Keys: bson.M{"miner": 1}, Options: options.Index().SetName("blocksMinerIndex").SetUnique(true).SetBackground(true)}
+	minerIdxModel := mongo.IndexModel{Keys: bson.M{"miner": 1}, Options: options.Index().SetName("blocksMinerIndex").SetBackground(true)}
 
 	_, err := iv.CreateMany(context.Background(), []mongo.IndexModel{bnIdxModel, bhIdxModel, minerIdxModel}, options.CreateIndexes())
 
