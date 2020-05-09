@@ -21,8 +21,9 @@ type blockCache struct {
 }
 
 type Config struct {
-	Enabled     bool `json:"enabled"`
-	MaxRoutines int  `json:"routines"`
+	Enabled     bool   `json:"enabled"`
+	Interval    string `json:"interval"`
+	MaxRoutines int    `json:"routines"`
 }
 
 type Crawler struct {

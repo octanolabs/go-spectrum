@@ -3,13 +3,14 @@
   "threads":4,
   "crawlers": {
     "enabled": true,
-    "interval": "500ms",
     "block_crawler": {
         "enabled": true,
+        "interval": "500ms",
         "routines": 5
     },
     "db_crawler": {
        "enabled": false
+       "interval": "300s",
     },
   },
   "api": {

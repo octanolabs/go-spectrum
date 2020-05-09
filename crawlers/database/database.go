@@ -13,7 +13,8 @@ type Crawler struct {
 }
 
 type Config struct {
-	Enabled bool `json:"enabled"`
+	Enabled  bool   `json:"enabled"`
+	Interval string `json:"interval"`
 }
 
 func NewDbCrawler(db *storage.MongoDB, cfg *Config, logger log.Logger) *Crawler {
