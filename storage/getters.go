@@ -25,7 +25,7 @@ func (m *MongoDB) Status() (models.Store, error) {
 	return store, err
 }
 
-// Getters
+// Blocks
 
 func (m *MongoDB) BlockByNumber(number uint64) (models.Block, error) {
 	var block models.Block

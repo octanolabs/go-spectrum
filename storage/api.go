@@ -29,6 +29,32 @@ func (m *MongoDB) LatestBlocks(limit int64) (map[string]interface{}, error) {
 	return result, err
 }
 
+func (m *MongoDB) LatestMinedBlocks(account string, limit int64) (map[string]interface{}, error) {
+	var (
+		mined  = make([]models.Block, 0)
+		result = map[string]interface{}{}
+	)
+
+	c, err := m.C(models.BLOCKS).Find(context.Background(), bson.M{"miner": account}, options.Find().SetSort(bson.D{{"number", -1}}).SetLimit(limit))
+
+	if err != nil {
+		return result, err
+	}
+
+	err = c.All(context.Background(), &mined)
+
+	count, err := m.C(models.BLOCKS).CountDocuments(context.Background(), bson.M{"miner": account}, options.Count())
+
+	if err != nil {
+		return map[string]interface{}{}, err
+	}
+
+	result["blocks"] = mined
+	result["total"] = count
+
+	return result, err
+}
+
 func (m *MongoDB) LatestUncles(limit int64) (map[string]interface{}, error) {
 	var (
 		uncles = make([]models.Uncle, 0)

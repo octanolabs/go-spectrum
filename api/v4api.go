@@ -43,13 +43,14 @@ type v4api interface {
 
 	//api-specific
 	LatestBlocks(limit int64) (map[string]interface{}, error)
+	LatestMinedBlocks(account string, limit int64) (map[string]interface{}, error)
 	LatestUncles(limit int64) (map[string]interface{}, error)
 	LatestForkedBlocks(limit int64) (map[string]interface{}, error)
 	LatestTransactions(limit int64) (map[string]interface{}, error)
 	LatestTokenTransfers(limit int64) (map[string]interface{}, error)
-	LatestTransfersOfToken(hash string) (map[string]interface{}, error)
+	LatestTransfersOfToken(account string) (map[string]interface{}, error)
 	LatestTokenTransfersByAccount(account string) (map[string]interface{}, error)
-	LatestTransactionsByAccount(hash string) (map[string]interface{}, error)
+	LatestTransactionsByAccount(account string) (map[string]interface{}, error)
 
 	//misc
 	Status() (models.Store, error)
