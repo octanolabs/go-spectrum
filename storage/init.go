@@ -107,8 +107,9 @@ func (m *MongoDB) initIndexes() {
 	txFIdxModel := mongo.IndexModel{Keys: bson.M{"from": 1}, Options: options.Index().SetName("txFromIndex").SetBackground(true)}
 	txTIdxModel := mongo.IndexModel{Keys: bson.M{"to": 1}, Options: options.Index().SetName("txToIndex").SetBackground(true)}
 	txCAIdxModel := mongo.IndexModel{Keys: bson.M{"contractAddress": 1}, Options: options.Index().SetName("txContractAddressIndex").SetBackground(true)}
+	txFailedIdxModel := mongo.IndexModel{Keys: bson.M{"status": 1}, Options: options.Index().SetName("txFailedIndex").SetBackground(true)}
 
-	_, err = iv.CreateMany(context.Background(), []mongo.IndexModel{txBNIdxModel, txHIdxModel, txFIdxModel, txTIdxModel, txCAIdxModel}, options.CreateIndexes())
+	_, err = iv.CreateMany(context.Background(), []mongo.IndexModel{txBNIdxModel, txHIdxModel, txFIdxModel, txTIdxModel, txCAIdxModel, txFailedIdxModel}, options.CreateIndexes())
 
 	if err != nil {
 		log.Error("could not init indexes for transactions", "err", err)

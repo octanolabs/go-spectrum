@@ -51,6 +51,7 @@ type v4api interface {
 	LatestTransfersOfToken(account string) (map[string]interface{}, error)
 	LatestTokenTransfersByAccount(account string) (map[string]interface{}, error)
 	LatestTransactionsByAccount(account string) (map[string]interface{}, error)
+	LatestFailedTransactions(limit int64) (map[string]interface{}, error)
 
 	//misc
 	Status() (models.Store, error)

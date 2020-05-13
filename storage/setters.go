@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"go.mongodb.org/mongo-driver/bson"
 
 	"github.com/octanolabs/go-spectrum/models"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -64,11 +65,11 @@ func (m *MongoDB) AddEnodes(e *models.Enode) error {
 func (m *MongoDB) AddChart(name string, series interface{}, stamps []string) error {
 	collection := m.C(models.CHARTS)
 
-	if _, err := collection.InsertOne(context.Background(), &models.Chart{
+	if _, err := collection.UpdateOne(context.Background(), bson.M{"name": name}, bson.D{{"$set", &models.Chart{
 		Name:       name,
 		Series:     series,
 		Timestamps: stamps,
-	}, options.InsertOne()); err != nil {
+	}}}, options.Update().SetUpsert(true)); err != nil {
 		return err
 	}
 	return nil
