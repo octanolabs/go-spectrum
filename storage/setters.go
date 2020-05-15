@@ -62,7 +62,7 @@ func (m *MongoDB) AddEnodes(e *models.Enode) error {
 	return nil
 }
 
-func (m *MongoDB) AddChart(name string, series interface{}, stamps []string) error {
+func (m *MongoDB) AddChart(name string, series []uint64, stamps []string) error {
 	collection := m.C(models.CHARTS)
 
 	if _, err := collection.UpdateOne(context.Background(), bson.M{"name": name}, bson.D{{"$set", &models.Chart{

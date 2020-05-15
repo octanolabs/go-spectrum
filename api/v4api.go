@@ -41,6 +41,10 @@ type v4api interface {
 	ContractTransferCount(address string) (int64, error)
 	TotalTransferCount() (int64, error)
 
+	//charts
+	GetChart(name string, limit int) (models.Chart, error)
+	ListCharts() ([]string, error)
+
 	//api-specific
 	LatestBlocks(limit int64) (map[string]interface{}, error)
 	LatestMinedBlocks(account string, limit int64) (map[string]interface{}, error)

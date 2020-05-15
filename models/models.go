@@ -39,7 +39,7 @@ type Enode struct {
 }
 
 type Chart struct {
-	Name       string      `bson:"name" json:"name"`
-	Series     interface{} `bson:"series" json:"series"`
-	Timestamps []string    `bson:"timestamps" json:"timestamps"`
+	Name       string   `bson:"name" json:"name"`
+	Series     []uint64 `bson:"series" json:"series"`
+	Timestamps []string `bson:"timestamps" json:"timestamps"`
 }
