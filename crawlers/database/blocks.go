@@ -18,7 +18,7 @@ func (b *blockChartData) Add(bcd interface{}) {
 	b.gasLimit.Add(b.gasLimit, bcd.(*blockChartData).gasLimit)
 	b.difficulty.Add(b.difficulty, bcd.(*blockChartData).difficulty)
 	b.blockTime.Add(b.blockTime, bcd.(*blockChartData).blockTime)
-	b.transactions.Add(b.blockTime, bcd.(*blockChartData).blockTime)
+	b.transactions.Add(b.transactions, bcd.(*blockChartData).transactions)
 	b.blocks.Add(b.blocks, bcd.(*blockChartData).blocks)
 
 	for k, v := range bcd.(*blockChartData).miners {
@@ -49,8 +49,12 @@ func (c *Crawler) CrawlBlocks() {
 
 		miners = make(map[string][]uint64, 0)
 	)
+	// time.Location here must be set to local
+	endOfYesterday := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()-1, 23, 59, 59, 0, time.Local)
 
-	cursor, err := c.backend.IterBlocks()
+	c.logger.Warn("crawling blocks from", "from", 0, "to", endOfYesterday.Format("02/01/06"))
+
+	cursor, err := c.backend.IterBlocks(0, endOfYesterday.Unix())
 	if err != nil {
 		c.logger.Error("Error creating block iter", "err", err)
 	}
@@ -87,7 +91,8 @@ func (c *Crawler) CrawlBlocks() {
 				diff   = big.NewInt(0)
 			)
 
-			ts := time.Unix(int64(currentBlock.Timestamp), 0).Format("02/01/06")
+			mined := time.Unix(int64(currentBlock.Timestamp), 0)
+			ts := mined.Format("01/02/06")
 
 			_, ok := avgGas.SetString(currentBlock.AvgGasPrice, 10)
 			if !ok {

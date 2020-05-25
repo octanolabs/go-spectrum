@@ -37,8 +37,8 @@ func (c *chartData) getDates() []string {
 	}
 
 	sort.Slice(dates, func(i, j int) bool {
-		ti, _ := time.Parse("02/01/06", dates[i])
-		tj, _ := time.Parse("02/01/06", dates[j])
+		ti, _ := time.Parse("01/02/06", dates[i])
+		tj, _ := time.Parse("01/02/06", dates[j])
 		return ti.Before(tj)
 	})
 
