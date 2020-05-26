@@ -137,9 +137,64 @@ func (m *MongoDB) LatestFailedTransactions(limit int64) (map[string]interface{},
 		result = map[string]interface{}{}
 	)
 
-	// TODO: all txns before Byzantium are saved to db as failed, filter those out of the query
+	filter := bson.M{"$and": []bson.M{{"blockNumber": bson.M{"$gte": 1075090}}, {"status": false}}}
 
-	filter := bson.M{"status": false}
+	c, err := m.C(models.TXNS).Find(context.Background(), filter, options.Find().SetSort(bson.D{{"blockNumber", -1}}).SetLimit(limit))
+
+	if err != nil {
+		return result, err
+	}
+
+	err = c.All(context.Background(), &txns)
+
+	result["txns"] = txns
+
+	count, err := m.C(models.TXNS).CountDocuments(context.Background(), filter, options.Count())
+	if err != nil {
+		return map[string]interface{}{}, err
+	}
+
+	result["total"] = count
+
+	return result, err
+}
+
+func (m *MongoDB) LatestContractCalls(limit int64) (map[string]interface{}, error) {
+	var (
+		txns   = make([]models.Transaction, 0)
+		result = map[string]interface{}{}
+	)
+
+	// Match txns that have an input field but with the contractAddress field empty, so it doesn't match txns that deploy contracts
+	filter := bson.M{"$and": []bson.M{{"contractAddress": bson.M{"$eq": ""}}, {"input": bson.M{"$ne": "0x"}}}}
+
+	c, err := m.C(models.TXNS).Find(context.Background(), filter, options.Find().SetSort(bson.D{{"blockNumber", -1}}).SetLimit(limit))
+
+	if err != nil {
+		return result, err
+	}
+
+	err = c.All(context.Background(), &txns)
+
+	result["txns"] = txns
+
+	count, err := m.C(models.TXNS).CountDocuments(context.Background(), filter, options.Count())
+	if err != nil {
+		return map[string]interface{}{}, err
+	}
+
+	result["total"] = count
+
+	return result, err
+}
+
+func (m *MongoDB) LatestContractsDeployed(limit int64) (map[string]interface{}, error) {
+	var (
+		txns   = make([]models.Transaction, 0)
+		result = map[string]interface{}{}
+	)
+
+	filter := bson.M{"contractAddress": bson.M{"$ne": ""}}
 
 	c, err := m.C(models.TXNS).Find(context.Background(), filter, options.Find().SetSort(bson.D{{"blockNumber", -1}}).SetLimit(limit))
 
