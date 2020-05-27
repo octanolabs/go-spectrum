@@ -190,18 +190,46 @@ func (m *MongoDB) TotalTransferCount() (int64, error) {
 
 // Charts
 
-func (m *MongoDB) GetChart(name string, limit int) (models.Chart, error) {
-	var chart models.Chart
+func (m *MongoDB) GetNumberChart(name string, limit int) (models.NumberChart, error) {
+	var chart models.NumberChart
 
 	err := m.C(models.CHARTS).FindOne(context.Background(), bson.M{"name": name}, options.FindOne()).Decode(&chart)
 	if err != nil {
-		return models.Chart{}, err
+		return models.NumberChart{}, err
 	}
 
 	if limit > 0 {
 		lastIdx := len(chart.Series) - 1
 		chart.Series = chart.Series[lastIdx-limit:]
 		chart.Timestamps = chart.Timestamps[lastIdx-limit:]
+	}
+
+	return chart, err
+}
+
+func (m *MongoDB) GetNumberStringChart(name string, limit int) (models.NumberStringChart, error) {
+	var chart models.NumberStringChart
+
+	err := m.C(models.CHARTS).FindOne(context.Background(), bson.M{"name": name}, options.FindOne()).Decode(&chart)
+	if err != nil {
+		return models.NumberStringChart{}, err
+	}
+
+	if limit > 0 {
+		lastIdx := len(chart.Series) - 1
+		chart.Series = chart.Series[lastIdx-limit:]
+		chart.Timestamps = chart.Timestamps[lastIdx-limit:]
+	}
+
+	return chart, err
+}
+
+func (m *MongoDB) GetMLChart(name string) (models.MLChart, error) {
+	var chart models.MLChart
+
+	err := m.C(models.CHARTS).FindOne(context.Background(), bson.M{"name": name}, options.FindOne()).Decode(&chart)
+	if err != nil {
+		return models.MLChart{}, err
 	}
 
 	return chart, err

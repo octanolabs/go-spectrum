@@ -38,8 +38,20 @@ type Enode struct {
 	UDP  int      `json:"tcp"`
 }
 
-type Chart struct {
+type NumberChart struct {
 	Name       string   `bson:"name" json:"name"`
 	Series     []uint64 `bson:"series" json:"series"`
 	Timestamps []string `bson:"timestamps" json:"timestamps"`
+}
+
+type NumberStringChart struct {
+	Name       string   `bson:"name" json:"name"`
+	Series     []string `bson:"series" json:"series"`
+	Timestamps []string `bson:"timestamps" json:"timestamps"`
+}
+
+type MLChart struct {
+	Name       string      `bson:"name" json:"name"`
+	Series     interface{} `bson:"series" json:"series"`
+	Timestamps []string    `bson:"timestamps" json:"timestamps"`
 }

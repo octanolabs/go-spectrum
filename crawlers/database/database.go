@@ -31,6 +31,10 @@ func (c *Crawler) RunLoop() {
 	c.CrawlBlocks()
 
 	c.logger.Info("crawled blocks collection", "took", time.Since(s))
+
+	c.CrawlTransactions()
+
+	c.logger.Info("crawled transactions collection", "took", time.Since(s))
 }
 
 //func (c *Crawler) CrawlTransactions() {

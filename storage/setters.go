@@ -62,10 +62,36 @@ func (m *MongoDB) AddEnodes(e *models.Enode) error {
 	return nil
 }
 
-func (m *MongoDB) AddChart(name string, series []uint64, stamps []string) error {
+func (m *MongoDB) AddNumberChart(name string, series []uint64, stamps []string) error {
 	collection := m.C(models.CHARTS)
 
-	if _, err := collection.UpdateOne(context.Background(), bson.M{"name": name}, bson.D{{"$set", &models.Chart{
+	if _, err := collection.UpdateOne(context.Background(), bson.M{"name": name}, bson.D{{"$set", &models.NumberChart{
+		Name:       name,
+		Series:     series,
+		Timestamps: stamps,
+	}}}, options.Update().SetUpsert(true)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *MongoDB) AddNumberStringChart(name string, series []string, stamps []string) error {
+	collection := m.C(models.CHARTS)
+
+	if _, err := collection.UpdateOne(context.Background(), bson.M{"name": name}, bson.D{{"$set", &models.NumberStringChart{
+		Name:       name,
+		Series:     series,
+		Timestamps: stamps,
+	}}}, options.Update().SetUpsert(true)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *MongoDB) AddMLChart(name string, series interface{}, stamps []string) error {
+	collection := m.C(models.CHARTS)
+
+	if _, err := collection.UpdateOne(context.Background(), bson.M{"name": name}, bson.D{{"$set", &models.MLChart{
 		Name:       name,
 		Series:     series,
 		Timestamps: stamps,

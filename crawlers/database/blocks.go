@@ -9,16 +9,15 @@ import (
 )
 
 type blockChartData struct {
-	avgGasPrice, gasLimit, difficulty, blockTime, blocks, transactions *big.Int
-	miners                                                             map[string]uint64
+	avgGasPrice, gasLimit, difficulty, blockTime, blocks *big.Int
+	miners                                               map[string]uint64
 }
 
-func (b *blockChartData) Add(bcd interface{}) {
+func (b *blockChartData) Add(bcd elem) {
 	b.avgGasPrice.Add(b.avgGasPrice, bcd.(*blockChartData).avgGasPrice)
 	b.gasLimit.Add(b.gasLimit, bcd.(*blockChartData).gasLimit)
 	b.difficulty.Add(b.difficulty, bcd.(*blockChartData).difficulty)
 	b.blockTime.Add(b.blockTime, bcd.(*blockChartData).blockTime)
-	b.transactions.Add(b.transactions, bcd.(*blockChartData).transactions)
 	b.blocks.Add(b.blocks, bcd.(*blockChartData).blocks)
 
 	for k, v := range bcd.(*blockChartData).miners {
@@ -40,12 +39,11 @@ func (b *blockChartData) weigh() {
 func (c *Crawler) CrawlBlocks() {
 
 	var (
-		avgGasPrice  = make([]uint64, 0)
-		gasLimit     = make([]uint64, 0)
-		difficulty   = make([]uint64, 0)
-		blockTime    = make([]uint64, 0)
-		blocks       = make([]uint64, 0)
-		transactions = make([]uint64, 0)
+		avgGasPrice = make([]uint64, 0)
+		gasLimit    = make([]uint64, 0)
+		difficulty  = make([]uint64, 0)
+		blockTime   = make([]uint64, 0)
+		blocks      = make([]uint64, 0)
 
 		miners = make(map[string][]uint64, 0)
 	)
@@ -119,13 +117,12 @@ func (c *Crawler) CrawlBlocks() {
 			}
 
 			d := &blockChartData{
-				avgGasPrice:  avgGas,
-				gasLimit:     new(big.Int).SetUint64(block.GasLimit),
-				difficulty:   diff,
-				blockTime:    bTime,
-				blocks:       new(big.Int).SetInt64(1),
-				transactions: new(big.Int).SetInt64(int64(block.Txs)),
-				miners:       miners,
+				avgGasPrice: avgGas,
+				gasLimit:    new(big.Int).SetUint64(block.GasLimit),
+				difficulty:  diff,
+				blockTime:   bTime,
+				blocks:      new(big.Int).SetInt64(1),
+				miners:      miners,
 			}
 
 			result.addElement(ts, d)
@@ -158,7 +155,6 @@ func (c *Crawler) CrawlBlocks() {
 		difficulty = append(difficulty, elem.difficulty.Uint64())
 		blockTime = append(blockTime, elem.blockTime.Uint64())
 		blocks = append(blocks, elem.blocks.Uint64())
-		transactions = append(transactions, elem.transactions.Uint64())
 
 		for k, v := range elem.miners {
 			if _, ok := miners[k]; ok {
@@ -173,45 +169,39 @@ func (c *Crawler) CrawlBlocks() {
 	c.logger.Info("gathered chart data", "from", dates[0], "to", dates[len(dates)-1])
 
 	c.logger.Info("added chart: gasPrice")
-	err = c.backend.AddChart("avgGasPrice", avgGasPrice, dates)
+	err = c.backend.AddNumberChart("avgGasPrice", avgGasPrice, dates)
 	if err != nil {
 		c.logger.Error("error adding avgGasPrice chart", "err", err)
 	}
 
 	c.logger.Info("added chart: difficulty")
-	err = c.backend.AddChart("difficulty", difficulty, dates)
+	err = c.backend.AddNumberChart("difficulty", difficulty, dates)
 	if err != nil {
 		c.logger.Error("error adding difficulty chart", "err", err)
 	}
 
 	c.logger.Info("added chart: blocks")
-	err = c.backend.AddChart("blocks", blocks, dates)
+	err = c.backend.AddNumberChart("blocks", blocks, dates)
 	if err != nil {
 		c.logger.Error("error adding blocks chart", "err", err)
 	}
 
 	c.logger.Info("added chart: gasLimit")
-	err = c.backend.AddChart("gasLimit", gasLimit, dates)
+	err = c.backend.AddNumberChart("gasLimit", gasLimit, dates)
 	if err != nil {
 		c.logger.Error("error adding chart ", "err", err)
 	}
 
 	c.logger.Info("added chart: blockTime")
-	err = c.backend.AddChart("blockTime", blockTime, dates)
+	err = c.backend.AddNumberChart("blockTime", blockTime, dates)
 	if err != nil {
 		c.logger.Error("error adding gasLimit chart", "err", err)
-	}
-
-	c.logger.Info("added chart: transactions")
-	err = c.backend.AddChart("transactions", transactions, dates)
-	if err != nil {
-		c.logger.Error("error adding blockTime chart", "err", err)
 	}
 
 	for k, v := range miners {
 		n := "miner_" + k
 
-		err := c.backend.AddChart(n, v, dates)
+		err := c.backend.AddNumberChart(n, v, dates)
 		if err != nil {
 			c.logger.Error("error adding miner chart", "miner", k, "err", err)
 		}

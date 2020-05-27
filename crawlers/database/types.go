@@ -6,7 +6,7 @@ import (
 )
 
 type elem interface {
-	Add(interface{})
+	Add(elem)
 }
 
 type chartData struct {
