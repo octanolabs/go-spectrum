@@ -9,8 +9,8 @@ import (
 )
 
 type blockChartData struct {
-	avgGasPrice, gasLimit, difficulty, blockTime, blocks *big.Int
-	miners                                               map[string]uint64
+	avgGasPrice, gasLimit, difficulty, blockTime, blocks, supply *big.Int
+	miners                                                       map[string]uint64
 }
 
 func (b *blockChartData) Add(bcd elem) {
@@ -19,6 +19,7 @@ func (b *blockChartData) Add(bcd elem) {
 	b.difficulty.Add(b.difficulty, bcd.(*blockChartData).difficulty)
 	b.blockTime.Add(b.blockTime, bcd.(*blockChartData).blockTime)
 	b.blocks.Add(b.blocks, bcd.(*blockChartData).blocks)
+	b.supply.Set(bcd.(*blockChartData).supply)
 
 	for k, v := range bcd.(*blockChartData).miners {
 		if _, ok := b.miners[k]; ok {
@@ -44,6 +45,7 @@ func (c *Crawler) CrawlBlocks() {
 		difficulty  = make([]uint64, 0)
 		blockTime   = make([]uint64, 0)
 		blocks      = make([]uint64, 0)
+		supply      = make([]string, 0)
 
 		miners = make(map[string][]uint64, 0)
 	)
@@ -87,6 +89,7 @@ func (c *Crawler) CrawlBlocks() {
 				bTime  = big.NewInt(0)
 				avgGas = big.NewInt(0)
 				diff   = big.NewInt(0)
+				supply = big.NewInt(0)
 			)
 
 			mined := time.Unix(int64(currentBlock.Timestamp), 0)
@@ -108,6 +111,12 @@ func (c *Crawler) CrawlBlocks() {
 				bTime = new(big.Int).SetUint64(currentBlock.Timestamp - prevStamp)
 			}
 
+			_, ok = supply.SetString(currentBlock.Supply, 10)
+			if !ok {
+				c.logger.Error("error setting supply", "height", currentBlock.Number, "diff", currentBlock.Difficulty)
+				return
+			}
+
 			miners := make(map[string]uint64)
 			miners[currentBlock.Miner] = 1
 
@@ -123,6 +132,7 @@ func (c *Crawler) CrawlBlocks() {
 				blockTime:   bTime,
 				blocks:      new(big.Int).SetInt64(1),
 				miners:      miners,
+				supply:      supply,
 			}
 
 			result.addElement(ts, d)
@@ -155,6 +165,7 @@ func (c *Crawler) CrawlBlocks() {
 		difficulty = append(difficulty, elem.difficulty.Uint64())
 		blockTime = append(blockTime, elem.blockTime.Uint64())
 		blocks = append(blocks, elem.blocks.Uint64())
+		supply = append(supply, elem.supply.String())
 
 		for k, v := range elem.miners {
 			if _, ok := miners[k]; ok {
@@ -168,34 +179,46 @@ func (c *Crawler) CrawlBlocks() {
 
 	c.logger.Info("gathered chart data", "from", dates[0], "to", dates[len(dates)-1])
 
-	c.logger.Info("added chart: gasPrice")
 	err = c.backend.AddNumberChart("avgGasPrice", avgGasPrice, dates)
 	if err != nil {
 		c.logger.Error("error adding avgGasPrice chart", "err", err)
+	} else {
+		c.logger.Info("added chart: gasPrice")
 	}
 
-	c.logger.Info("added chart: difficulty")
 	err = c.backend.AddNumberChart("difficulty", difficulty, dates)
 	if err != nil {
 		c.logger.Error("error adding difficulty chart", "err", err)
+	} else {
+		c.logger.Info("added chart: difficulty")
 	}
 
-	c.logger.Info("added chart: blocks")
 	err = c.backend.AddNumberChart("blocks", blocks, dates)
 	if err != nil {
 		c.logger.Error("error adding blocks chart", "err", err)
+	} else {
+		c.logger.Info("added chart: blocks")
 	}
 
-	c.logger.Info("added chart: gasLimit")
 	err = c.backend.AddNumberChart("gasLimit", gasLimit, dates)
 	if err != nil {
 		c.logger.Error("error adding chart ", "err", err)
+	} else {
+		c.logger.Info("added chart: gasLimit")
 	}
 
-	c.logger.Info("added chart: blockTime")
 	err = c.backend.AddNumberChart("blockTime", blockTime, dates)
 	if err != nil {
 		c.logger.Error("error adding gasLimit chart", "err", err)
+	} else {
+		c.logger.Info("added chart: blockTime")
+	}
+
+	err = c.backend.AddNumberStringChart("supply", supply, dates)
+	if err != nil {
+		c.logger.Error("error adding gasLimit chart", "err", err)
+	} else {
+		c.logger.Info("added chart: supply")
 	}
 
 	for k, v := range miners {
