@@ -9,6 +9,8 @@ import (
 
 // These methods are used exclusively by the api, and since they return a subset of elements in a given collection we also include the totals for those collections
 
+//Blocks
+
 func (m *MongoDB) LatestBlocks(limit int64) (map[string]interface{}, error) {
 	var (
 		blocks = make([]models.Block, 0)
@@ -55,6 +57,8 @@ func (m *MongoDB) LatestMinedBlocks(account string, limit int64) (map[string]int
 	return result, err
 }
 
+//Uncles
+
 func (m *MongoDB) LatestUncles(limit int64) (map[string]interface{}, error) {
 	var (
 		uncles = make([]models.Uncle, 0)
@@ -81,6 +85,8 @@ func (m *MongoDB) LatestUncles(limit int64) (map[string]interface{}, error) {
 	return result, err
 }
 
+//Forked Blocks
+
 func (m *MongoDB) LatestForkedBlocks(limit int64) (map[string]interface{}, error) {
 	var (
 		forkedBlocks = make([]models.Block, 0)
@@ -105,6 +111,8 @@ func (m *MongoDB) LatestForkedBlocks(limit int64) (map[string]interface{}, error
 
 	return result, err
 }
+
+//Transactions
 
 func (m *MongoDB) LatestTransactions(limit int64) (map[string]interface{}, error) {
 	var (
@@ -158,6 +166,8 @@ func (m *MongoDB) LatestFailedTransactions(limit int64) (map[string]interface{},
 
 	return result, err
 }
+
+//Contracts
 
 func (m *MongoDB) LatestContractCalls(limit int64) (map[string]interface{}, error) {
 	var (
@@ -216,6 +226,8 @@ func (m *MongoDB) LatestContractsDeployed(limit int64) (map[string]interface{}, 
 	return result, err
 }
 
+//Tokens
+
 func (m *MongoDB) LatestTokenTransfers(limit int64) (map[string]interface{}, error) {
 	var (
 		transfers = make([]models.TokenTransfer, 0)
@@ -266,6 +278,8 @@ func (m *MongoDB) LatestTransfersOfToken(hash string) (map[string]interface{}, e
 
 	return result, err
 }
+
+//Accounts
 
 func (m *MongoDB) LatestTransactionsByAccount(hash string) (map[string]interface{}, error) {
 	var (

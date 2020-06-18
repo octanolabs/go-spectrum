@@ -120,12 +120,12 @@ func ConvertJSONHTTPReq(r *http.Request) (io.ReadCloser, int64, string) {
 	return ioutil.NopCloser(res), length, method
 }
 
-func ParseJsonRequest(r *http.Request) (string, []json.RawMessage, io.ReadCloser) {
+func ParseJsonRequest(r *http.Request) (json.RawMessage, []json.RawMessage, io.ReadCloser) {
 
 	var (
 		b   = make([]byte, r.ContentLength)
 		req struct {
-			Method string            `json:"method"`
+			Method json.RawMessage   `json:"method"`
 			Params []json.RawMessage `json:"params"`
 		}
 	)

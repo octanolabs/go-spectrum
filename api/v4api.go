@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -58,6 +59,8 @@ type v4api interface {
 	LatestTokenTransfersByAccount(account string) (map[string]interface{}, error)
 	LatestTransactionsByAccount(account string) (map[string]interface{}, error)
 	LatestFailedTransactions(limit int64) (map[string]interface{}, error)
+	LatestContractCalls(limit int64) (map[string]interface{}, error)
+	LatestContractsDeployed(limit int64) (map[string]interface{}, error)
 
 	//misc
 	Status() (models.Store, error)
@@ -83,22 +86,22 @@ func jsonParserMiddleware() gin.HandlerFunc {
 	}
 }
 
-//func jsonLoggerMiddleware() gin.HandlerFunc {
-//	return gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
+//func convertRawMethod(m interface{}) (result string) {
+//	str := fmt.Sprintf("%s", m)
+//	split := strings.Split(str, "_")
+//	return split[1]
+//}
 //
-//		//your custom format
-//		return fmt.Sprintf("%s - [%d][%s] \t %s | \t %s - %s | %s | %s\t-\t%s\n",
-//			param.TimeStamp.Format(time.RFC1123),
-//			param.StatusCode,
-//			param.Method,
-//			param.Latency,
-//			param.ClientIP,
-//			param.Request.UserAgent(),
-//			param.Path,
-//			param.Keys["method"],
-//			param.Keys["params"],
-//		)
-//	})
+//func convertRawParams(p interface{}) (result []string) {
+//	result = make([]string, 0)
+//	params, ok := p.([]json.RawMessage)
+//	if !ok {
+//		return
+//	}
+//	for _, v := range params {
+//		result = append(result, fmt.Sprintf("%s", v))
+//	}
+//	return
 //}
 
 func jsonLoggerMiddleware(logger log.Logger) gin.HandlerFunc {
@@ -107,18 +110,18 @@ func jsonLoggerMiddleware(logger log.Logger) gin.HandlerFunc {
 
 		context.Next()
 
-		if _, ok := context.Params.Get("method"); ok {
+		if method, ok := context.Keys["method"]; ok {
 
-			if _, ok = context.Params.Get("params"); ok {
+			if params, ok := context.Keys["params"]; ok {
+
 				logger.Info("received http request",
-					"path", context.Request.URL.Path,
 					"status", context.Writer.Status(),
 					"method", context.Request.Method,
 					"latency", time.Since(start),
 					"from", context.Request.RemoteAddr,
 					"agent", context.Request.UserAgent(),
-					"rpcMethod", context.Param("method"),
-					"rpcParams", context.Param("params"))
+					"rpcMethod", fmt.Sprintf("%s", method),
+					"rpcParams", fmt.Sprintf("%s", params))
 			}
 		} else {
 			logger.Info("received http request",
