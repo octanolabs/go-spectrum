@@ -26,6 +26,12 @@ func (c *Crawler) Start() {
 }
 
 func (c *Crawler) RunLoop() {
+
+	if s, err := c.backend.Status(); err == nil && s.LatestBlock.Number == 0 {
+		c.logger.Error("skipping cycle, the database is empty")
+		return
+	}
+
 	s := time.Now()
 
 	c.CrawlBlocks()
