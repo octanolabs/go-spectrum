@@ -34,6 +34,8 @@ func (l *logObject) add(o *logObject) {
 	l.blocks++
 	l.txns += o.txns
 	l.tokentransfers += o.tokentransfers
+	l.contractsDeployed += o.contractsDeployed
+	l.contractCalls += o.contractCalls
 	l.uncleNo += o.uncleNo
 	l.minted.Add(l.minted, o.minted)
 	l.supply = o.supply
@@ -44,6 +46,8 @@ func (l *logObject) clear() {
 	l.blocks = 0
 	l.txns = 0
 	l.tokentransfers = 0
+	l.contractsDeployed = 0
+	l.contractCalls = 0
 	l.uncleNo = 0
 	l.minted = new(big.Int)
 	l.supply = new(big.Int)
