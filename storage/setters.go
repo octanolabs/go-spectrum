@@ -17,6 +17,24 @@ func (m *MongoDB) AddTransaction(tx *models.Transaction) error {
 	return nil
 }
 
+func (m *MongoDB) AddDeployedContract(tx *models.Transaction) error {
+	collection := m.C(models.CONTRACTS)
+
+	if _, err := collection.InsertOne(context.Background(), tx, options.InsertOne()); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *MongoDB) AddContractCall(tx *models.Transaction) error {
+	collection := m.C(models.CONTRACTCALLS)
+
+	if _, err := collection.InsertOne(context.Background(), tx, options.InsertOne()); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (m *MongoDB) AddTokenTransfer(tt *models.TokenTransfer) error {
 	collection := m.C(models.TRANSFERS)
 

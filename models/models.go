@@ -7,14 +7,16 @@ import (
 )
 
 const (
-	BLOCKS       = "blocks"
-	TXNS         = "transactions"
-	UNCLES       = "uncles"
-	TRANSFERS    = "tokentransfers"
-	FORKEDBLOCKS = "forkedblocks"
-	CHARTS       = "charts"
-	STORE        = "sysstores"
-	ENODES       = "enodes"
+	BLOCKS        = "blocks"
+	TXNS          = "transactions"
+	UNCLES        = "uncles"
+	CONTRACTS     = "contracts"
+	CONTRACTCALLS = "contractcalls"
+	TRANSFERS     = "tokentransfers"
+	FORKEDBLOCKS  = "forkedblocks"
+	CHARTS        = "charts"
+	STORE         = "sysstores"
+	ENODES        = "enodes"
 )
 
 type Store struct {
@@ -24,10 +26,12 @@ type Store struct {
 	LatestBlock Block  `bson:"latestBlock" json:"latestBlock"`
 	Price       string `bson:"price" json:"price"`
 
-	TotalTransactions   int64 `bson:"totalTransactions" json:"totalTransactions"`
-	TotalTokenTransfers int64 `bson:"totalTokenTransfers" json:"totalTokenTransfers"`
-	TotalForkedBlocks   int64 `bson:"totalForkedBlocks" json:"totalForkedBlocks"`
-	TotalUncles         int64 `bson:"totalUncles" json:"totalUncles"`
+	TotalTransactions      int64 `bson:"totalTransactions" json:"totalTransactions"`
+	TotalContractsDeployed int64 `bson:"totalContractsDeployed" json:"totalContractsDeployed"`
+	TotalContractCalls     int64 `bson:"totalContractCalls" json:"totalContractCalls"`
+	TotalTokenTransfers    int64 `bson:"totalTokenTransfers" json:"totalTokenTransfers"`
+	TotalForkedBlocks      int64 `bson:"totalForkedBlocks" json:"totalForkedBlocks"`
+	TotalUncles            int64 `bson:"totalUncles" json:"totalUncles"`
 }
 
 type Enode struct {

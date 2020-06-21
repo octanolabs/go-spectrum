@@ -175,10 +175,14 @@ func (m *MongoDB) LatestContractCalls(limit int64) (map[string]interface{}, erro
 		result = map[string]interface{}{}
 	)
 
-	// Match txns that have an input field but with the contractAddress field empty, so it doesn't match txns that deploy contracts
-	filter := bson.M{"$and": []bson.M{{"contractAddress": bson.M{"$eq": ""}}, {"input": bson.M{"$ne": "0x"}}}}
+	//can't create compund index for this, input field may be too long
 
-	c, err := m.C(models.TXNS).Find(context.Background(), filter, options.Find().SetSort(bson.D{{"blockNumber", -1}}).SetLimit(limit))
+	pipeline := []bson.M{
+		{"$sort": bson.M{"blockNumber": -1}},
+		{"$limit": limit},
+	}
+
+	c, err := m.C(models.CONTRACTCALLS).Aggregate(context.Background(), pipeline, options.Aggregate())
 
 	if err != nil {
 		return result, err
@@ -188,12 +192,12 @@ func (m *MongoDB) LatestContractCalls(limit int64) (map[string]interface{}, erro
 
 	result["txns"] = txns
 
-	count, err := m.C(models.TXNS).CountDocuments(context.Background(), filter, options.Count())
+	store, err := m.Status()
 	if err != nil {
 		return map[string]interface{}{}, err
 	}
 
-	result["total"] = count
+	result["total"] = store.TotalContractCalls
 
 	return result, err
 }
@@ -204,9 +208,12 @@ func (m *MongoDB) LatestContractsDeployed(limit int64) (map[string]interface{}, 
 		result = map[string]interface{}{}
 	)
 
-	filter := bson.M{"contractAddress": bson.M{"$ne": ""}}
+	pipeline := []bson.M{
+		{"$sort": bson.M{"blockNumber": -1}},
+		{"$limit": limit},
+	}
 
-	c, err := m.C(models.TXNS).Find(context.Background(), filter, options.Find().SetSort(bson.D{{"blockNumber", -1}}).SetLimit(limit))
+	c, err := m.C(models.CONTRACTS).Aggregate(context.Background(), pipeline, options.Aggregate())
 
 	if err != nil {
 		return result, err
@@ -216,12 +223,12 @@ func (m *MongoDB) LatestContractsDeployed(limit int64) (map[string]interface{}, 
 
 	result["txns"] = txns
 
-	count, err := m.C(models.TXNS).CountDocuments(context.Background(), filter, options.Count())
+	store, err := m.Status()
 	if err != nil {
 		return map[string]interface{}{}, err
 	}
 
-	result["total"] = count
+	result["total"] = store.TotalContractsDeployed
 
 	return result, err
 }

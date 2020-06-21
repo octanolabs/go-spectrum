@@ -117,51 +117,58 @@ func (m *MongoDB) IsEnodePresent(id string) bool {
 func (m *MongoDB) UpdateStore() error {
 
 	var (
-		txCount, transferCount, uncleCount, forkedBlockCount int64
-		latestBlock                                          models.Block
+		txCount, transferCount, uncleCount, forkedBlockCount, contractsDeployedCount, contractCallsCount int64
+		latestBlock                                                                                      models.Block
 	)
 
 	collection := m.C(models.STORE)
 
 	txCount, err := m.TotalTxnCount()
+	if err != nil {
+		return err
+	}
 
+	contractsDeployedCount, err = m.TotalContractsDeployedCount()
+	if err != nil {
+		return err
+	}
+
+	contractCallsCount, err = m.TotalContractCallsCount()
 	if err != nil {
 		return err
 	}
 
 	transferCount, err = m.TotalTransferCount()
-
 	if err != nil {
 		return err
 	}
 
 	uncleCount, err = m.TotalUncleCount()
-
 	if err != nil {
 		return err
 	}
 
 	forkedBlockCount, err = m.TotalForkedBlockCount()
-
 	if err != nil {
 		return err
 	}
 
 	latestBlock, err = m.LatestBlock()
-
 	if err != nil {
 		return err
 	}
 
 	filter := bson.M{"symbol": m.symbol}
 	update := bson.D{{"$set", bson.M{
-		"updated":             time.Now().Unix(),
-		"supply":              latestBlock.Supply,
-		"latestBlock":         latestBlock,
-		"totalTransactions":   txCount,
-		"totalTokenTransfers": transferCount,
-		"totalUncles":         uncleCount,
-		"totalForkedBlocks":   forkedBlockCount,
+		"updated":                time.Now().Unix(),
+		"supply":                 latestBlock.Supply,
+		"latestBlock":            latestBlock,
+		"totalTransactions":      txCount,
+		"totalContractsDeployed": contractsDeployedCount,
+		"totalContractCalls":     contractCallsCount,
+		"totalTokenTransfers":    transferCount,
+		"totalUncles":            uncleCount,
+		"totalForkedBlocks":      forkedBlockCount,
 	}}}
 
 	updateRes, err := collection.UpdateOne(context.Background(), filter, update, options.Update())

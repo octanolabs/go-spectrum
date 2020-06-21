@@ -115,15 +115,46 @@ func (m *MongoDB) initIndexes() {
 		log.Error("could not init indexes for transactions", "err", err)
 	}
 
+	iv = m.C(models.CONTRACTS).Indexes()
+
+	contractsHIdxModel := mongo.IndexModel{Keys: bson.M{"hash": 1}, Options: options.Index().SetName("contractHashIndex").SetUnique(true).SetBackground(true)}
+	contractsBNIdxModel := mongo.IndexModel{Keys: bson.M{"blockNumber": 1}, Options: options.Index().SetName("contractBlockNumberIndex").SetBackground(true)}
+	contractsFIdxModel := mongo.IndexModel{Keys: bson.M{"from": 1}, Options: options.Index().SetName("contractFromIndex").SetBackground(true)}
+	contractsTIdxModel := mongo.IndexModel{Keys: bson.M{"to": 1}, Options: options.Index().SetName("contractToIndex").SetBackground(true)}
+	contractsCAIdxModel := mongo.IndexModel{Keys: bson.M{"contractAddress": 1}, Options: options.Index().SetName("contractContractAddressIndex").SetBackground(true)}
+	contractsFailedIdxModel := mongo.IndexModel{Keys: bson.M{"status": 1}, Options: options.Index().SetName("contractFailedIndex").SetBackground(true)}
+
+	_, err = iv.CreateMany(context.Background(), []mongo.IndexModel{contractsHIdxModel, contractsBNIdxModel, contractsFIdxModel, contractsTIdxModel, contractsCAIdxModel, contractsFailedIdxModel}, options.CreateIndexes())
+
+	if err != nil {
+		log.Error("could not init indexes for contracts", "err", err)
+	}
+
+	iv = m.C(models.CONTRACTCALLS).Indexes()
+
+	contractCallsHIdxModel := mongo.IndexModel{Keys: bson.M{"hash": 1}, Options: options.Index().SetName("contractCallsHashIndex").SetUnique(true).SetBackground(true)}
+	contractCallsBNIdxModel := mongo.IndexModel{Keys: bson.M{"blockNumber": 1}, Options: options.Index().SetName("contractCallsBlockNumberIndex").SetBackground(true)}
+	contractCallsFIdxModel := mongo.IndexModel{Keys: bson.M{"from": 1}, Options: options.Index().SetName("contractCallsFromIndex").SetBackground(true)}
+	contractCallsTIdxModel := mongo.IndexModel{Keys: bson.M{"to": 1}, Options: options.Index().SetName("contractCallsToIndex").SetBackground(true)}
+	contractCallsCAIdxModel := mongo.IndexModel{Keys: bson.M{"contractAddress": 1}, Options: options.Index().SetName("contractCallsContractAddressIndex").SetBackground(true)}
+	contractCallsFailedIdxModel := mongo.IndexModel{Keys: bson.M{"status": 1}, Options: options.Index().SetName("contractCallsFailedIndex").SetBackground(true)}
+
+	_, err = iv.CreateMany(context.Background(), []mongo.IndexModel{contractCallsHIdxModel, contractCallsBNIdxModel, contractCallsFIdxModel, contractCallsTIdxModel, contractCallsCAIdxModel, contractCallsFailedIdxModel}, options.CreateIndexes())
+
+	if err != nil {
+		log.Error("could not init indexes for contract calls", "err", err)
+	}
+
 	iv = m.C(models.TRANSFERS).Indexes()
 
 	trBNIdxModel := mongo.IndexModel{Keys: bson.M{"blockNumber": 1}, Options: options.Index().SetName("trBlockNumberIndex").SetBackground(true)}
 	trHIdxModel := mongo.IndexModel{Keys: bson.M{"hash": 1}, Options: options.Index().SetName("trTxHashIndex").SetBackground(true)}
 	trFIdxModel := mongo.IndexModel{Keys: bson.M{"from": 1}, Options: options.Index().SetName("trFromIndex").SetBackground(true)}
 	trTIdxModel := mongo.IndexModel{Keys: bson.M{"to": 1}, Options: options.Index().SetName("trToIndex").SetBackground(true)}
-	trCIdxModel := mongo.IndexModel{Keys: bson.M{"contract": 1}, Options: options.Index().SetName("trContractIndex").SetBackground(true)}
+	trCIdxModel := mongo.IndexModel{Keys: bson.M{"contractAddress": 1}, Options: options.Index().SetName("trContractIndex").SetBackground(true)}
+	trFailedIdxModel := mongo.IndexModel{Keys: bson.M{"status": 1}, Options: options.Index().SetName("txFailedIndex").SetBackground(true)}
 
-	_, err = iv.CreateMany(context.Background(), []mongo.IndexModel{trBNIdxModel, trHIdxModel, trFIdxModel, trTIdxModel, trCIdxModel}, options.CreateIndexes())
+	_, err = iv.CreateMany(context.Background(), []mongo.IndexModel{trBNIdxModel, trHIdxModel, trFIdxModel, trTIdxModel, trCIdxModel, trFailedIdxModel}, options.CreateIndexes())
 
 	if err != nil {
 		log.Error("could not init indexes for transfers", "err", err)

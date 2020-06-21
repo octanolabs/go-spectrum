@@ -99,11 +99,11 @@ func (c *Crawler) RunLoop() {
 func (c *Crawler) syncBlock(block models.Block, task *syncronizer.Task) {
 
 	var (
-		uncles              = make([]models.Uncle, 0)
-		avgGasPrice, txFees = new(big.Int), new(big.Int)
-		pSupply             = new(big.Int)
-		pHash               string
-		tokenTransfers      int
+		uncles                                           = make([]models.Uncle, 0)
+		avgGasPrice, txFees                              = new(big.Int), new(big.Int)
+		pSupply                                          = new(big.Int)
+		pHash                                            string
+		tokenTransfers, contractsDeployed, contractCalls int
 	)
 
 	// get parent block info
@@ -144,7 +144,7 @@ func (c *Crawler) syncBlock(block models.Block, task *syncronizer.Task) {
 	supply.Add(pSupply, minted)
 
 	if len(block.Transactions) > 0 {
-		avgGasPrice, txFees, tokenTransfers = c.processTransactions(block.Transactions, block.Timestamp)
+		avgGasPrice, txFees, tokenTransfers, contractsDeployed, contractCalls = c.processTransactions(block.Transactions, block.Timestamp)
 	}
 
 	minted.Add(blockReward, uncleRewards)
@@ -166,7 +166,7 @@ func (c *Crawler) syncBlock(block models.Block, task *syncronizer.Task) {
 	// add required block info to cache for next iteration
 	c.blockCache.Add(block.Number, blockCache{Supply: supply, Hash: block.Hash})
 
-	c.log(block.Number, block.Txs, tokenTransfers, block.UncleNo, minted, supply)
+	c.log(block.Number, block.Txs, tokenTransfers, contractsDeployed, contractCalls, block.UncleNo, minted, supply)
 }
 
 func (c *Crawler) syncForkedBlock(b models.Block) {
@@ -192,8 +192,8 @@ func (c *Crawler) syncForkedBlock(b models.Block) {
 }
 
 type data struct {
-	gasPrice, txFees *big.Int
-	tokenTransfers   int
+	gasPrice, txFees                                 *big.Int
+	tokenTransfers, contractCalls, contractsDeployed int
 }
 
 func (c *Crawler) processUncles(block *models.Block, uncles []models.Uncle) (*big.Int, *big.Int, *big.Int) {
@@ -223,12 +223,14 @@ func (c *Crawler) processUncles(block *models.Block, uncles []models.Uncle) (*bi
 
 }
 
-func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uint64) (avgGasPrice, txFees *big.Int, tokenTransfers int) {
+func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uint64) (avgGasPrice, txFees *big.Int, tokenTransfers, contractsDeployed, contractCalls int) {
 
 	data := &data{
-		gasPrice:       big.NewInt(0),
-		txFees:         big.NewInt(0),
-		tokenTransfers: 0,
+		gasPrice:          big.NewInt(0),
+		txFees:            big.NewInt(0),
+		tokenTransfers:    0,
+		contractCalls:     0,
+		contractsDeployed: 0,
 	}
 
 	// maxRoutines equal to 2 times the number of txs to account for possible token transfers
@@ -282,7 +284,7 @@ func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uin
 
 	txSync.Finish()
 
-	return data.gasPrice.Div(data.gasPrice, big.NewInt(int64(len(txs)))), data.txFees, data.tokenTransfers
+	return data.gasPrice.Div(data.gasPrice, big.NewInt(int64(len(txs)))), data.txFees, data.tokenTransfers, data.contractsDeployed, data.contractCalls
 }
 
 func (c *Crawler) processTransaction(tx *models.Transaction, receipt models.TxReceipt, data *data) {
@@ -300,11 +302,27 @@ func (c *Crawler) processTransaction(tx *models.Transaction, receipt models.TxRe
 	tx.Logs = receipt.Logs
 	tx.Status = receipt.Status
 
-	c.logger.Debug("tx to insert", "tx", fmt.Sprintf("%+v", tx), "receipt", fmt.Sprintf("%+v", receipt))
-
 	err := c.backend.AddTransaction(tx)
 	if err != nil {
 		c.logger.Error("couldn't insert tx into backend", "err", err)
+	}
+
+	if tx.IsContractDeployTxn() {
+		data.contractsDeployed++
+
+		err := c.backend.AddDeployedContract(tx)
+		if err != nil {
+			c.logger.Error("couldn't insert deployed contract into backend", "err", err)
+		}
+	}
+
+	if tx.IsContractCall() {
+		data.contractCalls++
+
+		err := c.backend.AddContractCall(tx)
+		if err != nil {
+			c.logger.Error("couldn't insert contract call into backend", "err", err)
+		}
 	}
 
 }
@@ -358,13 +376,15 @@ func (c *Crawler) handleReorg(b models.Block) {
 
 }
 
-func (c *Crawler) log(blockNo uint64, txns, transfers, uncles int, minted *big.Int, supply *big.Int) {
+func (c *Crawler) log(blockNo uint64, txns, transfers, contractsDeployed, contractCalls, uncles int, minted *big.Int, supply *big.Int) {
 	c.logChan <- &logObject{
-		blockNo:        blockNo,
-		txns:           txns,
-		tokentransfers: transfers,
-		uncleNo:        uncles,
-		minted:         minted,
-		supply:         supply,
+		blockNo:           blockNo,
+		txns:              txns,
+		tokentransfers:    transfers,
+		contractCalls:     contractCalls,
+		contractsDeployed: contractsDeployed,
+		uncleNo:           uncles,
+		minted:            minted,
+		supply:            supply,
 	}
 }

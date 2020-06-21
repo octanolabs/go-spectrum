@@ -124,6 +124,18 @@ func (m *MongoDB) TotalTxnCount() (int64, error) {
 	return count, err
 }
 
+// Contracts
+
+func (m *MongoDB) TotalContractCallsCount() (int64, error) {
+	count, err := m.C(models.CONTRACTCALLS).CountDocuments(context.Background(), bson.M{}, options.Count())
+	return count, err
+}
+
+func (m *MongoDB) TotalContractsDeployedCount() (int64, error) {
+	count, err := m.C(models.CONTRACTS).CountDocuments(context.Background(), bson.M{}, options.Count())
+	return count, err
+}
+
 // Token transfers
 
 func (m *MongoDB) TransfersOfTokenByAccount(token string, account string) ([]models.TokenTransfer, error) {
@@ -189,6 +201,7 @@ func (m *MongoDB) TotalTransferCount() (int64, error) {
 }
 
 // Charts
+// TODO: use multikey indexes to return part of the data
 
 func (m *MongoDB) GetNumberChart(name string, limit int) (models.NumberChart, error) {
 	var chart models.NumberChart

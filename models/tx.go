@@ -91,6 +91,15 @@ func (tx *Transaction) IsTokenTransfer() bool {
 	}
 }
 
+// generic function call on contract that is not a token transfer
+func (tx *Transaction) IsContractCall() bool {
+	return !tx.IsTokenTransfer() && tx.ContractAddress == "" && tx.Input != "0x"
+}
+
+func (tx *Transaction) IsContractDeployTxn() bool {
+	return tx.ContractAddress != ""
+}
+
 func (tx *Transaction) GetTokenTransfer() *TokenTransfer {
 	var params []string
 

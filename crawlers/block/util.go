@@ -18,13 +18,15 @@ var (
 )
 
 type logObject struct {
-	blockNo        uint64
-	blocks         int
-	txns           int
-	tokentransfers int
-	uncleNo        int
-	minted         *big.Int
-	supply         *big.Int
+	blockNo           uint64
+	blocks            int
+	txns              int
+	tokentransfers    int
+	contractsDeployed int
+	contractCalls     int
+	uncleNo           int
+	minted            *big.Int
+	supply            *big.Int
 }
 
 func (l *logObject) add(o *logObject) {
@@ -59,6 +61,8 @@ func startLogger(c chan *logObject, logger log.Logger) {
 			0,
 			0,
 			0,
+			0,
+			0,
 			new(big.Int),
 			new(big.Int),
 		}
@@ -75,6 +79,8 @@ func startLogger(c chan *logObject, logger log.Logger) {
 							"head", stats.blockNo,
 							"transactions", stats.txns,
 							"transfers", stats.tokentransfers,
+							"contracts", stats.contractsDeployed,
+							"contractCalls", stats.contractCalls,
 							"uncles", stats.uncleNo,
 							"minted", stats.minted,
 							"supply", stats.supply,
