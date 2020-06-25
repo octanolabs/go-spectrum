@@ -29,18 +29,17 @@ func (c *Crawler) RunLoop() {
 
 	if s, err := c.backend.Status(); err == nil && s.LatestBlock.Number == 0 {
 		c.logger.Error("skipping cycle, the database is empty")
-		return
+	} else {
+		s := time.Now()
+
+		c.CrawlBlocks()
+
+		c.logger.Info("crawled blocks collection", "took", time.Since(s))
+
+		c.CrawlTransactions()
+
+		c.logger.Info("crawled transactions collection", "took", time.Since(s))
 	}
-
-	s := time.Now()
-
-	c.CrawlBlocks()
-
-	c.logger.Info("crawled blocks collection", "took", time.Since(s))
-
-	c.CrawlTransactions()
-
-	c.logger.Info("crawled transactions collection", "took", time.Since(s))
 }
 
 //func (c *Crawler) CrawlTransactions() {

@@ -97,9 +97,10 @@ func startLogger(c chan *logObject, logger log.Logger) {
 					if stats.blocks > 0 {
 						logger.Info("Imported new chain segment",
 							"blocks", stats.blocks,
-							"head", stats.blockNo,
 							"transactions", stats.txns,
 							"transfers", stats.tokentransfers,
+							"contracts", stats.contractsDeployed,
+							"contractCalls", stats.contractCalls,
 							"uncles", stats.uncleNo,
 							"minted", stats.minted,
 							"supply", stats.supply,
