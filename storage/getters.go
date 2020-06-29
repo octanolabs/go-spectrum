@@ -237,12 +237,12 @@ func (m *MongoDB) GetNumberStringChart(name string, limit int) (models.NumberStr
 	return chart, err
 }
 
-func (m *MongoDB) GetMLChart(name string) (models.MLChart, error) {
-	var chart models.MLChart
+func (m *MongoDB) GetMultiSeriesChart(name string) (models.MultiSeriesChart, error) {
+	var chart models.MultiSeriesChart
 
 	err := m.C(models.CHARTS).FindOne(context.Background(), bson.M{"name": name}, options.FindOne()).Decode(&chart)
 	if err != nil {
-		return models.MLChart{}, err
+		return models.MultiSeriesChart{}, err
 	}
 
 	return chart, err

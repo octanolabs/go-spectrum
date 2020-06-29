@@ -54,8 +54,14 @@ type NumberStringChart struct {
 	Timestamps []string `bson:"timestamps" json:"timestamps"`
 }
 
-type MLChart struct {
-	Name       string      `bson:"name" json:"name"`
-	Series     interface{} `bson:"series" json:"series"`
-	Timestamps []string    `bson:"timestamps" json:"timestamps"`
+type MultiSeriesChart struct {
+	Name       string               `bson:"name" json:"name"`
+	Datasets   []MultiSeriesDataset `bson:"datasets" json:"datasets"`
+	Timestamps []string             `bson:"timestamps" json:"timestamps"`
+}
+
+type MultiSeriesDataset struct {
+	Name       string   `bson:"name" json:"name"`
+	Series     []uint   `bson:"series" json:"series"`
+	Timestamps []string `bson:"timestamps" json:"timestamps"`
 }

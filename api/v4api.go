@@ -45,7 +45,7 @@ type v4api interface {
 	//charts
 	GetNumberChart(name string, limit int) (models.NumberChart, error)
 	GetNumberStringChart(name string, limit int) (models.NumberStringChart, error)
-	GetMLChart(name string) (models.MLChart, error)
+	GetMultiSeriesChart(name string) (models.MultiSeriesChart, error)
 	ListCharts() ([]string, error)
 
 	//api-specific

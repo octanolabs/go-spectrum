@@ -5,7 +5,6 @@ import (
 	"github.com/octanolabs/go-spectrum/models"
 	"github.com/octanolabs/go-spectrum/syncronizer"
 	"math/big"
-	"sort"
 	"time"
 )
 
@@ -14,8 +13,11 @@ type transactionChartData struct {
 
 	gasUsed, txFees *big.Int
 
-	gasPrices map[string]int
-	gasLevels map[string]int
+	gasPriceLevels map[string]uint
+	gasUsedLevels  map[string]uint
+	gasLevels      map[string]uint
+
+	transactedValue *big.Int
 
 	contractCalls, contractsDeployed uint64
 }
@@ -27,11 +29,21 @@ func (b *transactionChartData) Add(tcd elem) {
 	b.gasUsed = b.gasUsed.Add(b.gasUsed, tcd.(*transactionChartData).gasUsed)
 	b.txFees = b.txFees.Add(b.txFees, tcd.(*transactionChartData).txFees)
 
-	for k, v := range tcd.(*transactionChartData).gasPrices {
-		if _, ok := b.gasPrices[k]; ok {
-			b.gasPrices[k] += v
+	b.transactedValue = b.transactedValue.Add(b.transactedValue, tcd.(*transactionChartData).transactedValue)
+
+	for k, v := range tcd.(*transactionChartData).gasPriceLevels {
+		if _, ok := b.gasPriceLevels[k]; ok {
+			b.gasPriceLevels[k] += v
 		} else {
-			b.gasPrices[k] = v
+			b.gasPriceLevels[k] = v
+		}
+	}
+
+	for k, v := range tcd.(*transactionChartData).gasUsedLevels {
+		if _, ok := b.gasUsedLevels[k]; ok {
+			b.gasUsedLevels[k] += v
+		} else {
+			b.gasUsedLevels[k] = v
 		}
 	}
 
@@ -87,8 +99,11 @@ func (c *Crawler) CrawlTransactions() {
 				gasPrice = big.NewInt(0)
 				gas      = big.NewInt(0)
 
-				gasPrices = make(map[string]int)
-				gasLevels = make(map[string]int)
+				transactedValue = big.NewInt(0)
+
+				gasPriceLevels = make(map[string]uint)
+				gasUsedLevels  = make(map[string]uint)
+				gasLevels      = make(map[string]uint)
 			)
 
 			mined := time.Unix(int64(currentTransaction.Timestamp), 0)
@@ -100,9 +115,12 @@ func (c *Crawler) CrawlTransactions() {
 
 			gasUsed = gasUsed.SetUint64(currentTransaction.GasUsed)
 
+			transactedValue, _ = transactedValue.SetString(currentTransaction.Value, 10)
+
 			txFees = txFees.Mul(gasUsed, gasPrice)
 
-			gasPrices[gasPrice.String()] = 1
+			gasPriceLevels[gasPrice.String()] = 1
+			gasUsedLevels[gasUsed.String()] = 1
 			gasLevels[gas.String()] = 1
 
 			aborted := task.Link()
@@ -111,11 +129,12 @@ func (c *Crawler) CrawlTransactions() {
 			}
 
 			d := &transactionChartData{
-				transactions: 1,
-				gasUsed:      gasUsed,
-				txFees:       txFees,
-				gasPrices:    gasPrices,
-				gasLevels:    gasLevels,
+				transactions:    1,
+				gasUsed:         gasUsed,
+				txFees:          txFees,
+				gasPriceLevels:  gasPriceLevels,
+				gasLevels:       gasLevels,
+				transactedValue: transactedValue,
 			}
 
 			if !currentTransaction.Status && currentTransaction.BlockNumber >= 1075090 {
@@ -149,8 +168,11 @@ func (c *Crawler) CrawlTransactions() {
 		gasUsed = make([]string, 0)
 		txFees  = make([]string, 0)
 
-		gasPrices = make([][][]uint64, 0)
-		gasLevels = make([][][]uint64, 0)
+		gasPriceLevels = make(map[string]map[string]uint, 0)
+		gasUsedLevels  = make(map[string]map[string]uint, 0)
+		gasLevels      = make(map[string]map[string]uint, 0)
+
+		transactedValues = make([]string, 0)
 
 		contractCalls     = make([]uint64, 0)
 		contractsDeployed = make([]uint64, 0)
@@ -158,8 +180,8 @@ func (c *Crawler) CrawlTransactions() {
 
 	dates := result.getDates()
 
-	for _, v := range dates {
-		e := result.getElement(v)
+	for _, date := range dates {
+		e := result.getElement(date)
 		elem := e.(*transactionChartData)
 
 		transactions = append(transactions, elem.transactions)
@@ -169,32 +191,49 @@ func (c *Crawler) CrawlTransactions() {
 		gasUsed = append(gasUsed, elem.gasUsed.String())
 		txFees = append(txFees, elem.txFees.String())
 
-		prices := make([][]uint64, 0)
-		for gasPrice, txns := range elem.gasPrices {
+		transactedValues = append(transactedValues, elem.transactedValue.String())
 
-			//we discard SetString() bool return because the map keys can be set to a big.Int for sure
-			gp, _ := big.NewInt(0).SetString(gasPrice, 10)
+		for gp, txns := range elem.gasPriceLevels {
+			//Use gwei as keys
+			gP, _ := new(big.Int).SetString(gp, 10)
+			gP.Div(gP, big.NewInt(1000000000))
+			gasPrice := gP.String()
 
-			prices = append(prices, []uint64{gp.Uint64(), uint64(txns)})
+			if _, ok := gasPriceLevels[gasPrice]; !ok {
+				// When the loop encounters a new gasprice 'level', we add a new map to the map, with gadsprice as key.
+				// this new map will have date as keys and txns as values
+				gasPriceLevels[gasPrice] = make(map[string]uint, 1)
+				gasPriceLevels[gasPrice][date] = txns
+			} else {
+				gasPriceLevels[gasPrice][date] = txns
+			}
 		}
-		sort.Slice(prices, func(i, j int) bool {
-			return prices[i][0] > prices[j][0]
-		})
 
-		gasPrices = append(gasPrices, prices)
+		for gu, txns := range elem.gasLevels {
+			//Use gas amount as key
+			gU, _ := new(big.Int).SetString(gu, 10)
+			gasUsed := gU.String()
 
-		levels := make([][]uint64, 0)
-		for gasLevel, txns := range elem.gasLevels {
-			//we discard SetString() bool return because the map keys can be set to a big.Int for sure
-			gl, _ := big.NewInt(0).SetString(gasLevel, 10)
-
-			levels = append(levels, []uint64{gl.Uint64(), uint64(txns)})
+			if _, ok := gasUsedLevels[gasUsed]; !ok {
+				gasUsedLevels[gasUsed] = make(map[string]uint, 1)
+				gasUsedLevels[gasUsed][date] = txns
+			} else {
+				gasUsedLevels[gasUsed][date] = txns
+			}
 		}
-		sort.Slice(levels, func(i, j int) bool {
-			return levels[i][0] > levels[j][0]
-		})
 
-		gasLevels = append(gasLevels, levels)
+		for gl, txns := range elem.gasLevels {
+			//Use gas amount as key
+			gL, _ := new(big.Int).SetString(gl, 10)
+			gasLevel := gL.String()
+
+			if _, ok := gasLevels[gasLevel]; !ok {
+				gasLevels[gasLevel] = make(map[string]uint, 1)
+				gasLevels[gasLevel][date] = txns
+			} else {
+				gasLevels[gasLevel][date] = txns
+			}
+		}
 
 		contractCalls = append(contractCalls, elem.contractCalls)
 		contractsDeployed = append(contractsDeployed, elem.contractsDeployed)
@@ -227,13 +266,25 @@ func (c *Crawler) CrawlTransactions() {
 	}
 	c.logger.Info("added txFees chart")
 
-	err = c.backend.AddMLChart("gasPrices", gasPrices, dates)
+	err = c.backend.AddNumberStringChart("transactedValues", txFees, dates)
 	if err != nil {
-		c.logger.Error("error adding gasPrices chart", "err", err)
+		c.logger.Error("error adding transactedValues chart", "err", err)
 	}
-	c.logger.Info("added gasPrices chart")
+	c.logger.Info("added transactedValues chart")
 
-	err = c.backend.AddMLChart("gasLevels", gasLevels, dates)
+	err = c.backend.AddMultiSeriesChart("gasPriceLevels", gasPriceLevels, dates)
+	if err != nil {
+		c.logger.Error("error adding gasPriceLevels chart", "err", err)
+	}
+	c.logger.Info("added gasPriceLevels chart")
+
+	err = c.backend.AddMultiSeriesChart("gasUsedLevels", gasUsedLevels, dates)
+	if err != nil {
+		c.logger.Error("error adding gasLevels chart", "err", err)
+	}
+	c.logger.Info("added gasLevels chart")
+
+	err = c.backend.AddMultiSeriesChart("gasLevels", gasLevels, dates)
 	if err != nil {
 		c.logger.Error("error adding gasLevels chart", "err", err)
 	}

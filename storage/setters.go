@@ -2,7 +2,9 @@ package storage
 
 import (
 	"context"
+	"github.com/octanolabs/go-spectrum/util"
 	"go.mongodb.org/mongo-driver/bson"
+	"sort"
 
 	"github.com/octanolabs/go-spectrum/models"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -106,12 +108,41 @@ func (m *MongoDB) AddNumberStringChart(name string, series []string, stamps []st
 	return nil
 }
 
-func (m *MongoDB) AddMLChart(name string, series interface{}, stamps []string) error {
+func (m *MongoDB) AddMultiSeriesChart(name string, series map[string]map[string]uint, stamps []string) error {
 	collection := m.C(models.CHARTS)
 
-	if _, err := collection.UpdateOne(context.Background(), bson.M{"name": name}, bson.D{{"$set", &models.MLChart{
+	datasets := make([]models.MultiSeriesDataset, 0)
+
+	for k, v := range series {
+
+		series := make([]uint, 0)
+		timestamps := make([]string, 0)
+
+		dst := models.MultiSeriesDataset{
+			Name: k,
+		}
+
+		for date, val := range v {
+			series = append(series, val)
+			timestamps = append(timestamps, date)
+		}
+
+		toSort := util.DateValuesSlice{
+			Values: series,
+			Dates:  timestamps,
+		}
+
+		sort.Sort(toSort)
+
+		dst.Series = toSort.Values
+		dst.Timestamps = toSort.Dates
+
+		datasets = append(datasets, dst)
+	}
+
+	if _, err := collection.UpdateOne(context.Background(), bson.M{"name": name}, bson.D{{"$set", &models.MultiSeriesChart{
 		Name:       name,
-		Series:     series,
+		Datasets:   datasets,
 		Timestamps: stamps,
 	}}}, options.Update().SetUpsert(true)); err != nil {
 		return err
