@@ -14,6 +14,7 @@ func (rbn *RawBlockDetails) Convert() (uint64, string) {
 }
 
 type RawBlock struct {
+	//TODO: For indexing purposes "number" should be renamed to "blockNumber"?
 	Number          string           `bson:"number" json:"number"`
 	Timestamp       string           `bson:"timestamp" json:"timestamp"`
 	Transactions    []RawTransaction `bson:"transactions" json:"transactions"`
@@ -28,17 +29,17 @@ type RawBlock struct {
 	GasLimit        string           `bson:"gasLimit" json:"gasLimit"`
 	Nonce           string           `bson:"nonce" json:"nonce"`
 	Uncles          []string         `bson:"uncles" json:"uncles"`
-	//
-	BlockReward  string `bson:"blockReward" json:"blockReward"`
-	UnclesReward string `bson:"unclesReward" json:"unclesReward"`
-	AvgGasPrice  string `bson:"avgGasPrice" json:"avgGasPrice"`
-	TxFees       string `bson:"txFees" json:"txFees"`
+	//TODO: These are not used for anything
+	BlockReward   string `bson:"blockReward" json:"blockReward"`
+	UnclesRewards string `bson:"unclesReward" json:"unclesReward"`
+	AvgGasPrice   string `bson:"avgGasPrice" json:"avgGasPrice"`
+	TxFees        string `bson:"txFees" json:"txFees"`
 	//
 	ExtraData string `bson:"extraData" json:"extraData"`
 }
 
-func (b *RawBlock) Convert() *Block {
-	return &Block{
+func (b *RawBlock) Convert() Block {
+	return Block{
 		Number:          util.DecodeHex(b.Number),
 		Timestamp:       util.DecodeHex(b.Timestamp),
 		Transactions:    b.Transactions,
@@ -57,9 +58,12 @@ func (b *RawBlock) Convert() *Block {
 		UncleNo:         len(b.Uncles),
 		// Empty
 		BlockReward:  "0",
-		UnclesReward: "0",
+		UncleRewards: "0",
 		AvgGasPrice:  "0",
 		TxFees:       "0",
+		//
+		Minted: "0",
+		Supply: "0",
 		//
 		ExtraData: b.ExtraData,
 	}
@@ -75,6 +79,8 @@ type Block struct {
 	Transactions []RawTransaction `bson:"-" json:"-"`
 	Txs          int              `bson:"transactions" json:"transactions"`
 	//
+	TokenTransfers int `bson:"tokenTransfers" json:"tokenTransfers"`
+	//
 	Hash            string `bson:"hash" json:"hash"`
 	ParentHash      string `bson:"parentHash" json:"parentHash"`
 	Sha3Uncles      string `bson:"sha3Uncles" json:"sha3Uncles"`
@@ -88,11 +94,15 @@ type Block struct {
 	// Same as Txs
 	Uncles  []string `bson:"-" json:"-"`
 	UncleNo int      `bson:"uncles" json:"uncles"`
-	// TODO: These should be strings
+	// TODO: Should these be strings
+	// Maybe make this more clear // minted = baseBlockReward + uncleRewards? + bonusRewardForUncles?
 	BlockReward  string `bson:"blockReward" json:"blockReward"`
-	UnclesReward string `bson:"unclesReward" json:"unclesReward"`
+	UncleRewards string `bson:"uncleRewards" json:"uncleRewards"`
 	AvgGasPrice  string `bson:"avgGasPrice" json:"avgGasPrice"`
 	TxFees       string `bson:"txFees" json:"txFees"`
+	// Supply
+	Minted string `bson:"minted" json:"minted"`
+	Supply string `bson:"supply" json:"supply"`
 	//
 	ExtraData string `bson:"extraData" json:"extraData"`
 }

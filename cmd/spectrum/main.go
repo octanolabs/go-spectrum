@@ -1,97 +1,125 @@
 package main
 
 import (
-	"encoding/json"
+	"flag"
+	"fmt"
 	"os"
-	"path/filepath"
 	"runtime"
-	"strconv"
-	"time"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/rivo/tview"
+
+	"github.com/octanolabs/go-spectrum/util/logui"
+
+	"github.com/ubiq/go-ubiq/log"
 
 	"github.com/octanolabs/go-spectrum/config"
-	"github.com/octanolabs/go-spectrum/crawler"
 	"github.com/octanolabs/go-spectrum/params"
 	"github.com/octanolabs/go-spectrum/rpc"
 	"github.com/octanolabs/go-spectrum/storage"
 )
 
-var cfg config.Config
+var (
+	cfg        config.Config
+	appLogger  = log.Root()
+	mainLogger log.Logger
+
+	RootHandler *log.GlogHandler
+
+	loguiHandler *logui.PassthroughHandler
+
+	enableLogUi    bool
+	logLevel       string
+	configFileName string
+)
+
+const (
+	configFlagDefault = "config.json"
+	configFlagDesc    = "specify name of config file (should be in working dir)"
+
+	logLevelFlagDefault = "info"
+	logLevelFlagDesc    = "set level of logs"
+)
 
 func init() {
 
-	v, _ := strconv.ParseBool(os.Getenv("DEBUG"))
-	if v {
-		log.SetFormatter(&log.TextFormatter{FullTimestamp: true, TimestampFormat: time.StampNano})
-		log.SetLevel(log.DebugLevel)
-		log.SetReportCaller(true)
+	flag.StringVar(&configFileName, "c", configFlagDefault, configFlagDesc)
+	flag.StringVar(&configFileName, "config", configFlagDefault, configFlagDesc)
+
+	flag.StringVar(&logLevel, "ll", logLevelFlagDefault, logLevelFlagDesc)
+	flag.StringVar(&logLevel, "logLevel", logLevelFlagDefault, logLevelFlagDesc)
+
+	flag.BoolVar(&enableLogUi, "logui", false, "Enables logui")
+
+	flag.Parse()
+
+	if enableLogUi {
+		ch := make(chan *tview.TextView, 10)
+		loguiHandler = logui.NewPassThroughHandler(ch)
+
+		RootHandler = log.NewGlogHandler(loguiHandler)
 	} else {
-		log.SetFormatter(&log.TextFormatter{FullTimestamp: true, TimestampFormat: time.Stamp})
-		log.SetLevel(log.InfoLevel)
-	}
-}
-
-func readConfig(cfg *config.Config) {
-
-	if len(os.Args) == 1 {
-		log.Fatalln("Invalid arguments")
+		RootHandler = log.NewGlogHandler(log.StreamHandler(os.Stdout, log.TerminalFormat(true)))
 	}
 
-	conf := os.Args[1]
-	conf, _ = filepath.Abs(conf)
-
-	log.Printf("Loading config: %v", conf)
-
-	configFile, err := os.Open(conf)
-	if err != nil {
-		log.Fatal("File error: ", err.Error())
+	if logLevel == "debug" || logLevel == "d" || logLevel == "dbg" {
+		RootHandler.Verbosity(log.LvlDebug)
+	} else if logLevel == "trace" || logLevel == "t" {
+		RootHandler.Verbosity(log.LvlTrace)
+	} else {
+		RootHandler.Verbosity(log.LvlInfo)
 	}
-	defer configFile.Close()
-	jsonParser := json.NewDecoder(configFile)
-	if err := jsonParser.Decode(&cfg); err != nil {
-		log.Fatal("Config error: ", err.Error())
-	}
-}
 
-func startCrawler(mongo *storage.MongoDB, rpc *rpc.RPCClient, cfg *crawler.Config) {
-	c := crawler.New(mongo, rpc, cfg)
-	c.Start()
+	appLogger.SetHandler(RootHandler)
+
+	mainLogger = log.Root().New("pkg", "main")
 }
 
 func main() {
-	log.Info("go-spectrum ", params.VersionWithMeta, " (", params.VersionWithCommit, ")")
+	log.Info(fmt.Sprint("go-spectrum ", params.VersionWithMeta, " (", params.VersionWithCommit, ")"))
 
 	readConfig(&cfg)
 
+	mainLogger.Debug("Printing config", "cfg", cfg)
+
 	if cfg.Threads > 0 {
 		runtime.GOMAXPROCS(cfg.Threads)
-		log.Printf("Running with %v threads", cfg.Threads)
+		mainLogger.Info("App running", "threads", cfg.Threads)
 	} else {
 		runtime.GOMAXPROCS(1)
-		log.Println("Running with 1 thread")
+		mainLogger.Info("App running with 1 thread")
 	}
+
+	mainLogger.Debug("Connecting to mongo", "addr", cfg.Mongo.ConnectionString())
 
 	mongo, err := storage.NewConnection(&cfg.Mongo) // TODO - iquidus: fix this check
 
 	if err != nil {
-		log.Fatalf("Can't establish connection to mongo: %v", err)
+		mainLogger.Error("Can't establish connection to mongo: %v", err)
 	} else {
-		log.Printf("Successfully connected to mongo at %v", cfg.Mongo.Address)
+		mainLogger.Info("Successfully connected to mongo", "addr", cfg.Mongo.Address)
 	}
 
 	err = mongo.Ping()
 
 	if err != nil {
-		log.Printf("Can't establish connection to mongo: %v", err)
+		mainLogger.Error("Can't establish connection to mongo", "err", err)
 	} else {
-		log.Println("PING")
+		mainLogger.Info("mongo: PONG")
 	}
 
-	rpc := rpc.NewRPCClient(&cfg.Rpc)
+	rpcClient := rpc.NewRPCClient(&cfg.Rpc)
 
-	go startCrawler(mongo, rpc, &cfg.Crawler)
+	if cfg.Crawlers.Enabled {
+		go startCrawlers(mongo, &cfg.Crawlers, appLogger, rpcClient)
+	} else if cfg.Api.Enabled {
+		go startApi(mongo, &cfg.Api, appLogger.New("pkg", "api"))
+	}
 
-	quit := make(chan bool)
-	<-quit
+	if enableLogUi {
+		lui := logui.NewLogUi(loguiHandler, appLogger.New("pkg", "ui"))
+		lui.Start()
+	} else {
+		quit := make(chan int)
+		<-quit
+	}
 }

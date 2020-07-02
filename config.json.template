@@ -1,0 +1,35 @@
+
+{
+  "threads":4,
+  "crawlers": {
+    "enabled": true,
+    "block_crawler": {
+        "enabled": true,
+        "interval": "500ms",
+        "routines": 5
+    },
+    "db_crawler": {
+       "enabled": false
+       "interval": "300s",
+    },
+  },
+  "api": {
+    "enabled": false,
+    "port": "3000",
+    "nodemap": {
+      "enabled": false,
+      "mode": "server",
+      "mmdb": "GeoLite2-City.mmdb"
+    }
+  },
+  "mongo": {
+    "address": "127.0.0.1:27017",
+    "database": "spectrum-test",
+    "user": "spectrum",
+    "password": "UBQ4Lyfe"
+  },
+  "rpc": {
+    "type": "http"
+    "url": "127.0.0.1:8588",
+  }
+}

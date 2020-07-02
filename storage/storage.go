@@ -1,196 +1,184 @@
 package storage
 
 import (
-	"github.com/globalsign/mgo"
-	"github.com/globalsign/mgo/bson"
+	"context"
+	"errors"
+	"fmt"
+	"time"
+
 	"github.com/octanolabs/go-spectrum/models"
-	log "github.com/sirupsen/logrus"
+	"github.com/ubiq/go-ubiq/log"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type Config struct {
+	Symbol   string `json:"symbol"`
 	User     string `json:"user"`
 	Password string `json:"password"`
 	Database string `json:"database"`
 	Address  string `json:"address"`
 }
 
+func (c *Config) ConnectionString() string {
+	return fmt.Sprint("mongodb://", c.User, ":", c.Password, "@", c.Address, "/", c.Database)
+}
+
 type MongoDB struct {
-	session *mgo.Session
-	db      *mgo.Database
+	symbol string
+	client *mongo.Client
+	db     *mongo.Database
 }
 
 func NewConnection(cfg *Config) (*MongoDB, error) {
-	session, err := mgo.DialWithInfo(&mgo.DialInfo{
-		Addrs:    []string{cfg.Address},
-		Database: cfg.Database,
-		Username: cfg.User,
-		Password: cfg.Password,
-	})
-	if err != nil {
-		return nil, err
+
+	if cfg.Symbol == "" {
+		return nil, errors.New("symbol not set")
 	}
-	return &MongoDB{session, session.DB("")}, nil
+
+	client, err := mongo.NewClient(options.Client().ApplyURI(cfg.ConnectionString()))
+	if err != nil {
+		log.Error("error creating mongo client", "err", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+
+	defer cancel()
+
+	err = client.Connect(ctx)
+
+	if err != nil {
+		log.Error("couldn't connect to mongo", "err", err)
+	}
+
+	return &MongoDB{cfg.Symbol, client, client.Database(cfg.Database, options.Database())}, nil
+}
+
+func (m *MongoDB) C(coll string) *mongo.Collection {
+	return m.db.Collection(coll, options.Collection())
 }
 
 func (m *MongoDB) IsFirstRun() bool {
-	var store models.Store
 
-	err := m.db.C(models.STORE).Find(&bson.M{}).Limit(1).One(&store)
+	err := m.C(models.STORE).FindOne(context.Background(), bson.M{}, options.FindOne()).Err()
 
 	if err != nil {
-		if err.Error() == "not found" {
+		if err == mongo.ErrNoDocuments {
 			return true
 		} else {
-			log.Fatalf("Error during initialization: %v", err)
+			log.Error("Error during initialization", "err", err)
 		}
 	}
 
 	return false
 }
 
-func (m *MongoDB) IsPresent(height uint64) bool {
+func (m *MongoDB) Ping() error {
+	return m.client.Ping(context.Background(), nil)
+}
 
-	if height == 0 {
-		return true
-	}
+func (m *MongoDB) PurgeBlock(height uint64) error {
 
-	if dbHead, _ := m.LatestSupplyBlock(); dbHead.Number == height {
-		return false
-	}
-
-	var rbn models.RawBlockDetails
-	err := m.db.C(models.BLOCKS).Find(&bson.M{"number": height}).Limit(1).One(&rbn)
+	r, err := m.C(models.BLOCKS).DeleteOne(context.Background(), bson.M{"number": height}, options.Delete())
 
 	if err != nil {
-		if err.Error() == "not found" {
-			return false
-		} else {
-			log.Errorf("Error checking for block in db: %v", err)
-		}
+		return err
 	}
+	log.Debug("purged %v blocks", "count", r.DeletedCount)
 
+	r, err = m.C(models.TXNS).DeleteMany(context.Background(), bson.M{"blockNumber": height}, options.Delete())
+
+	if err != nil {
+		return err
+	}
+	log.Debug("purged %v transactions", "count", r.DeletedCount)
+
+	r, err = m.C(models.TRANSFERS).DeleteMany(context.Background(), bson.M{"blockNumber": height}, options.Delete())
+
+	if err != nil {
+		return err
+	}
+	log.Debug("purged %v transfers", "count", r.DeletedCount)
+	return nil
+
+}
+
+func (m *MongoDB) IsEnodePresent(id string) bool {
+
+	err := m.C(models.ENODES).FindOne(context.Background(), bson.M{"id": id}, options.FindOne()).Err()
+
+	if err != nil {
+		log.Debug("could not find enode", "err", err)
+		return false
+	}
 	return true
 }
 
-func (m *MongoDB) IsInDB(height uint64, hash string) (bool, bool) {
-	var rbn models.RawBlockDetails
-	err := m.db.C(models.BLOCKS).Find(&bson.M{"number": height}).Limit(1).One(&rbn)
+func (m *MongoDB) UpdateStore() error {
 
+	var (
+		txCount, transferCount, uncleCount, forkedBlockCount, contractsDeployedCount, contractCallsCount int64
+		latestBlock                                                                                      models.Block
+	)
+
+	collection := m.C(models.STORE)
+
+	txCount, err := m.TotalTxnCount()
 	if err != nil {
-		if err.Error() == "not found" {
-			return false, false
-		} else {
-			log.Errorf("Error checking for block in db: %v", err)
-		}
+		return err
 	}
 
-	if _, contendentHash := rbn.Convert(); contendentHash != hash {
-		return true, true
-	}
-
-	return true, false
-}
-
-func (m *MongoDB) IndexHead() [1]uint64 {
-	var store models.Store
-
-	err := m.db.C(models.STORE).Find(&bson.M{}).Limit(1).One(&store)
-
+	contractsDeployedCount, err = m.TotalContractsDeployedCount()
 	if err != nil {
-		log.Fatalf("Error during initialization: %v", err)
+		return err
 	}
 
-	return store.Sync
-}
-
-func (m *MongoDB) UpdateStore(latestBlock *models.Block, synctype string) error {
-
-	head := m.IndexHead()
-
-	switch synctype {
-
-	// This case will fire when initial sync is complete and it's just adding blocks as they come in
-	case "top":
-
-		// If the block behind is present the sync reached the top of the db
-
-		if m.IsPresent(latestBlock.Number - 1) {
-			head = [1]uint64{0}
-		} else {
-			head[0] = latestBlock.Number
-		}
-
-		err := m.db.C(models.STORE).Update(&bson.M{"symbol": "sync"}, &bson.M{"symbol": "sync", "sync": head})
-
-		if err != nil {
-			return err
-		}
-
-		// This case will fire when there is a sync active and the sync variable is being used by another crawler routine
-	case "":
-
-		// Setting it to 1 << 62 because omitting the field in the update method makes the key disappear instead of not updating it
-		// 1<< 62 is greater than any blocknumber so next case will always trigger
-
-		err := m.db.C(models.STORE).Update(&bson.M{"symbol": "sync"}, &bson.M{"symbol": "sync", "sync": [1]uint64{1 << 62}})
-
-		if err != nil {
-			return err
-		}
-
-		// This case will fire when it's syncing backwards
-	case "back", "first":
-
-		// To check if we're at the top of the db we check one block behind
-
-		if m.IsPresent(latestBlock.Number - 1) {
-			head = [1]uint64{0}
-		} else {
-			head[0] = latestBlock.Number
-		}
-
-		err := m.db.C(models.STORE).Update(&bson.M{"symbol": "sync"}, &bson.M{"symbol": "sync", "sync": head})
-
-		if err != nil {
-			return err
-		}
+	contractCallsCount, err = m.TotalContractCallsCount()
+	if err != nil {
+		return err
 	}
 
+	transferCount, err = m.TotalTransferCount()
+	if err != nil {
+		return err
+	}
+
+	uncleCount, err = m.TotalUncleCount()
+	if err != nil {
+		return err
+	}
+
+	forkedBlockCount, err = m.TotalForkedBlockCount()
+	if err != nil {
+		return err
+	}
+
+	latestBlock, err = m.LatestBlock()
+	if err != nil {
+		return err
+	}
+
+	filter := bson.M{"symbol": m.symbol}
+	update := bson.D{{"$set", bson.M{
+		"updated":                time.Now().Unix(),
+		"supply":                 latestBlock.Supply,
+		"latestBlock":            latestBlock,
+		"totalTransactions":      txCount,
+		"totalContractsDeployed": contractsDeployedCount,
+		"totalContractCalls":     contractCallsCount,
+		"totalTokenTransfers":    transferCount,
+		"totalUncles":            uncleCount,
+		"totalForkedBlocks":      forkedBlockCount,
+	}}}
+
+	updateRes, err := collection.UpdateOne(context.Background(), filter, update, options.Update())
+	if err != nil {
+		return err
+	}
+
+	if updateRes.ModifiedCount == 0 {
+		return errors.New("didn't update " + m.symbol + " store")
+	}
 	return nil
-}
 
-func (m *MongoDB) SupplyObject(symbol string) (models.Store, error) {
-	var store models.Store
-
-	err := m.db.C(models.STORE).Find(bson.M{"symbol": symbol}).One(&store)
-	return store, err
-}
-
-func (m *MongoDB) Purge(height uint64) {
-
-	// TODO: make this better
-
-	blockselector := &bson.M{"number": height}
-
-	bulk := m.db.C(models.SBLOCK).Bulk()
-	bulk.RemoveAll(blockselector)
-	_, err := bulk.Run()
-	if err != nil {
-		log.Errorf("Error purging blocks: %v", err)
-	}
-
-}
-
-func (m *MongoDB) Ping() error {
-	return m.session.Ping()
-}
-
-func (m *MongoDB) RemoveSupplyBlock(height uint64) error {
-	selector := &bson.M{"number": height}
-
-	bulk := m.db.C(models.SBLOCK).Bulk()
-	bulk.RemoveAll(selector)
-	_, err := bulk.Run()
-
-	return err
 }

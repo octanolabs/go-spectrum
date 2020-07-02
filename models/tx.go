@@ -2,7 +2,7 @@ package models
 
 import (
 	"github.com/octanolabs/go-spectrum/util"
-	log "github.com/sirupsen/logrus"
+	"github.com/ubiq/go-ubiq/log"
 )
 
 type RawTransaction struct {
@@ -22,8 +22,8 @@ type RawTransaction struct {
 	S                string `json:"s"`
 }
 
-func (rt *RawTransaction) Convert() *Transaction {
-	return &Transaction{
+func (rt *RawTransaction) Convert() Transaction {
+	return Transaction{
 		BlockHash:   rt.BlockHash,
 		BlockNumber: util.DecodeHex(rt.BlockNumber),
 		Hash:        rt.Hash,
@@ -59,6 +59,7 @@ type Transaction struct {
 	TransactionIndex uint64 `bson:"transactionIndex" json:"transactionIndex"`
 	From             string `bson:"from" json:"from"`
 	To               string `bson:"to" json:"to"`
+	Status           bool   `json:"status"`
 	//
 	GasUsed         uint64  `bson:"gasUsed" json:"gasUsed"`
 	ContractAddress string  `bson:"contractAddress" json:"contractAddress"`
@@ -90,6 +91,15 @@ func (tx *Transaction) IsTokenTransfer() bool {
 	}
 }
 
+// generic function call on contract that is not a token transfer
+func (tx *Transaction) IsContractCall() bool {
+	return !tx.IsTokenTransfer() && tx.ContractAddress == "" && tx.Input != "0x"
+}
+
+func (tx *Transaction) IsContractDeployTxn() bool {
+	return tx.ContractAddress != ""
+}
+
 func (tx *Transaction) GetTokenTransfer() *TokenTransfer {
 	var params []string
 
@@ -104,47 +114,57 @@ func (tx *Transaction) GetTokenTransfer() *TokenTransfer {
 			tx.Input[10:74], tx.Input[74:138], tx.Input[138:],
 		}
 	} else {
-		log.Errorf("Error processing toxen transfers: input length is not standard: len: %v", len(tx.Input))
+		log.Error("couldn't proces token transfer: input length is not standard", "len", len(tx.Input))
+		return &TokenTransfer{}
+	}
+
+	transfer := &TokenTransfer{
+		BlockNumber: tx.BlockNumber,
+		Hash:        tx.Hash,
+		Timestamp:   tx.Timestamp,
 	}
 
 	switch method {
 	case "0xa9059cbb": // transfer
-		return &TokenTransfer{
-			From:     tx.From,
-			To:       util.InputParamsToAddress(params[0]),
-			Value:    util.DecodeValueHex(params[1]),
-			Contract: tx.To,
-			Method:   "transfer",
-		}
+		transfer.From = tx.From
+		transfer.To = util.InputParamsToAddress(params[0])
+		transfer.Value = util.DecodeValueHex(params[1])
+		transfer.Contract = tx.To
+		transfer.Method = "transfer"
+
+		return transfer
 
 	case "0x23b872dd": // transferFrom
-		return &TokenTransfer{
-			From:     util.InputParamsToAddress(params[0]),
-			To:       util.InputParamsToAddress(params[1]),
-			Value:    util.DecodeValueHex(params[2]),
-			Contract: tx.To,
-			Method:   "transferFrom",
-		}
+		transfer.From = util.InputParamsToAddress(params[0])
+		transfer.To = util.InputParamsToAddress(params[1])
+		transfer.Value = util.DecodeValueHex(params[2])
+		transfer.Contract = tx.To
+		transfer.Method = "transferFrom"
+
+		return transfer
 
 	case "0x6ea056a9": // sweep
-		return &TokenTransfer{
-			From:     tx.To,
-			To:       tx.From,
-			Value:    util.DecodeValueHex(params[1]),
-			Contract: util.InputParamsToAddress(params[0]),
-			Method:   "sweep",
-		}
+		transfer.From = tx.To
+		transfer.To = tx.From
+		transfer.Value = util.DecodeValueHex(params[1])
+		transfer.Contract = util.InputParamsToAddress(params[0])
+		transfer.Method = "sweep"
+
+		return transfer
 
 	case "0x40c10f19": // mint
-		return &TokenTransfer{
-			From:     "0x0000000000000000000000000000000000000000",
-			To:       util.InputParamsToAddress(params[0]),
-			Value:    util.DecodeValueHex(params[1]),
-			Contract: tx.To,
-			Method:   "mint",
-		}
+		transfer.From = "0x0000000000000000000000000000000000000000"
+		transfer.To = util.InputParamsToAddress(params[0])
+		transfer.Value = util.DecodeValueHex(params[1])
+		transfer.Contract = tx.To
+		transfer.Method = "mint"
+
+		return transfer
 	default:
-		return nil
+		transfer.Method = "unknown"
+		transfer.Data = tx.Input
+
+		return transfer
 	}
 
 }
@@ -158,50 +178,79 @@ type TokenTransfer struct {
 	Value       string `bson:"value" json:"value"`
 	Contract    string `bson:"contract" json:"contract"`
 	Method      string `bson:"method" json:"method"`
+	Status      bool   `json:"status"`
+	// If the token can't be recognized we give it "unknown" method and attach the input data
+	Data string `json:"data,omitempty" bson:"data,omitempty"`
 }
 
 type RawTxReceipt struct {
-	TransactionHash   string  `json:"transactionHash"`
-	TransactionIndex  string  `json:"transactionIndex"`
-	BlockNumber       string  `json:"blockNumber"`
 	BlockHash         string  `json:"blockHash"`
-	CumulativeGasUsed string  `json:"cumulativeGasUsed"`
-	GasUsed           string  `json:"gasUsed"`
+	BlockNumber       string  `json:"blockNumber"`
 	ContractAddress   string  `json:"contractAddress"`
+	CumulativeGasUsed string  `json:"cumulativeGasUsed"`
+	From              string  `json:"from"`
+	GasUsed           string  `json:"gasUsed"`
 	Logs              []TxLog `json:"logs"`
 	LogsBloom         string  `json:"logsBloom"`
 	Status            string  `json:"status"`
+	To                string  `json:"to"`
+	TransactionHash   string  `json:"transactionHash"`
+	TransactionIndex  string  `json:"transactionIndex"`
 }
 
-func (rtr *RawTxReceipt) Convert() *TxReceipt {
-	return &TxReceipt{
-		TransactionHash:   rtr.TransactionHash,
-		TransactionIndex:  rtr.TransactionIndex,
+//{
+//"blockHash": "0x5cae9e3aae39e3e9970de0307445fd442333713f9e6f5d0fed51e19b56ff6259",
+//"blockNumber": "0x117640",
+//"contractAddress": null,
+//"cumulativeGasUsed": "0x47c70",
+//"from": "0x09692a71d42c209f42b731af8edd6910287437d3",
+//"gasUsed": "0x5208",
+//"logs": [],
+//"logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+//"status": "0x1",
+//"to": "0xb3c4e9ca7c12a6277deb9eef2dece65953d1c864",
+//"transactionHash": "0x8d028a79d671bef7e0b405eb9905978186421611d895103c00244a89dc3a13c3",
+//"transactionIndex": "0xd"
+//}
+
+func (rtr *RawTxReceipt) Convert() TxReceipt {
+	var status bool
+
+	if rtr.Status == "0x1" {
+		status = true
+	}
+
+	return TxReceipt{
 		BlockNumber:       util.DecodeHex(rtr.BlockNumber),
 		BlockHash:         rtr.BlockHash,
-		CumulativeGasUsed: util.DecodeHex(rtr.CumulativeGasUsed),
-		GasUsed:           util.DecodeHex(rtr.GasUsed),
 		ContractAddress:   rtr.ContractAddress,
+		CumulativeGasUsed: util.DecodeHex(rtr.CumulativeGasUsed),
+		From:              rtr.From,
+		GasUsed:           util.DecodeHex(rtr.GasUsed),
 		Logs:              rtr.Logs,
 		LogsBloom:         rtr.LogsBloom,
-		Status:            rtr.Status,
+		Status:            status,
+		To:                rtr.To,
+		TransactionHash:   rtr.TransactionHash,
+		TransactionIndex:  rtr.TransactionIndex,
 	}
 }
 
 type TxReceipt struct {
-	TransactionHash   string  `json:"transactionHash"`
-	TransactionIndex  string  `json:"transactionIndex"`
-	BlockNumber       uint64  `json:"blockNumber"`
 	BlockHash         string  `json:"blockHash"`
-	CumulativeGasUsed uint64  `json:"cumulativeGasUsed"`
-	GasUsed           uint64  `json:"gasUsed"`
+	BlockNumber       uint64  `json:"blockNumber"`
 	ContractAddress   string  `json:"contractAddress"`
+	CumulativeGasUsed uint64  `json:"cumulativeGasUsed"`
+	From              string  `json:"from"`
+	GasUsed           uint64  `json:"gasUsed"`
 	Logs              []TxLog `json:"logs"`
 	LogsBloom         string  `json:"logsBloom"`
-	Status            string  `json:"status"`
+	Status            bool    `json:"status"`
+	To                string  `json:"to"`
+	TransactionHash   string  `json:"transactionHash"`
+	TransactionIndex  string  `json:"transactionIndex"`
 }
 
-// FIXME: this is broken, also probably useless, setting everything to string
 type TxLog struct {
 	Address          string   `bson:"address" json:"address"`
 	Topics           []string `bson:"topics" json:"topics"`

@@ -1,14 +1,21 @@
 package util
 
 import (
-	"encoding/json"
 	"math/big"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
-	log "github.com/sirupsen/logrus"
+	json "github.com/json-iterator/go"
+
+	"github.com/ubiq/go-ubiq/log"
 )
+
+func MakeTimestamp() int64 {
+
+	return time.Now().UnixNano() / int64(time.Millisecond)
+}
 
 func GetJson(client *http.Client, url string, target interface{}) error {
 	r, err := client.Get(url)
@@ -61,7 +68,7 @@ func DecodeHex(str string) uint64 {
 	i, err := strconv.ParseUint(str, 16, 64)
 
 	if err != nil {
-		log.Errorf("Couldn't decode hex (%v): %v", str, err)
+		log.Error("couldn't decode hex", "str", str, "err", err)
 		return 0
 	}
 
@@ -73,18 +80,50 @@ func DecodeValueHex(val string) string {
 		x, err := DecodeBig(val)
 
 		if err != nil {
-			log.Errorf("ErrorDecodeValueHex (%v): %v", val, err)
+			log.Error("errorDecodeValueHex", "str", val, "err", err)
 		}
 		return x.String()
 	} else {
 		x, ok := big.NewInt(0).SetString(val, 16)
 
 		if !ok {
-			log.Errorf("ErrorDecodeValueHex (%v): %v", val, ok)
+			log.Error("errorDecodeValueHex", "str", val, "ok", ok)
 		}
 
 		return x.String()
 	}
+}
+
+func InputParamsToAddress(str string) string {
+	return "0x" + strings.ToLower(str[24:])
+}
+
+func CaculateBlockReward(height uint64, uncleNo int) *big.Int {
+
+	baseReward := baseBlockReward(height)
+
+	uncleRewards := big.NewInt(0)
+
+	if uncleNo > 0 {
+		uncleRewards = uncleRewards.Div(baseReward, big.NewInt(int64(32*uncleNo)))
+	}
+
+	baseReward = baseReward.Add(baseReward, uncleRewards)
+	return baseReward
+}
+
+func CaculateUncleReward(height uint64, uncleHeight uint64) *big.Int {
+	baseReward := baseBlockReward(height)
+
+	uncleRewards := big.NewInt(0)
+
+	uncleRewards.Mul(big.NewInt(int64((uncleHeight+2)-height)), baseReward)
+	uncleRewards.Div(uncleRewards, big.NewInt(2))
+
+	if uncleRewards.Cmp(big.NewInt(0)) == -1 {
+		return big.NewInt(0)
+	}
+	return uncleRewards
 }
 
 func FromWei(str string) string {
@@ -94,6 +133,39 @@ func FromWei(str string) string {
 	return x.String()
 }
 
-func InputParamsToAddress(str string) string {
-	return "0x" + strings.ToLower(str[24:])
+func FromWeiToGwei(str string) string {
+	x, _ := new(big.Float).SetString(str)
+	y, _ := new(big.Float).SetString("1000000000")
+	x.Quo(x, y)
+	return x.String()
+}
+
+func FormatQwark(str string) string {
+	x, _ := new(big.Float).SetString(str)
+	y, _ := new(big.Float).SetString("100000000")
+	x.Quo(x, y)
+	return x.String()
+}
+
+func baseBlockReward(height uint64) *big.Int {
+	if height > 2508545 {
+		return big.NewInt(1000000000000000000)
+	} else if height > 2150181 {
+		return big.NewInt(2000000000000000000)
+	} else if height > 1791818 {
+		return big.NewInt(3000000000000000000)
+	} else if height > 1433454 {
+		return big.NewInt(4000000000000000000)
+	} else if height > 1075090 {
+		return big.NewInt(5000000000000000000)
+	} else if height > 716727 {
+		return big.NewInt(6000000000000000000)
+	} else if height > 358363 {
+		return big.NewInt(7000000000000000000)
+	} else if height > 0 {
+		return big.NewInt(8000000000000000000)
+	} else {
+		// genesis
+		return big.NewInt(0)
+	}
 }
