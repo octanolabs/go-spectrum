@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/octanolabs/go-spectrum/util"
 	"go.mongodb.org/mongo-driver/bson"
+	"math/big"
 	"sort"
 
 	"github.com/octanolabs/go-spectrum/models"
@@ -111,7 +112,7 @@ func (m *MongoDB) AddNumberStringChart(name string, series []string, stamps []st
 func (m *MongoDB) AddMultiSeriesChart(name string, series map[string]map[string]uint, stamps []string) error {
 	collection := m.C(models.CHARTS)
 
-	datasets := make([]models.MultiSeriesDataset, 0)
+	datasets := make([]*models.MultiSeriesDataset, 0)
 
 	for k, v := range series {
 
@@ -137,8 +138,20 @@ func (m *MongoDB) AddMultiSeriesChart(name string, series map[string]map[string]
 		dst.Series = toSort.Values
 		dst.Timestamps = toSort.Dates
 
-		datasets = append(datasets, dst)
+		datasets = append(datasets, &dst)
 	}
+
+	sort.Slice(datasets, func(i, j int) bool {
+		sI, ok := new(big.Int).SetString(datasets[i].Name, 10)
+		if !ok {
+			return false
+		}
+		sj, ok := new(big.Int).SetString(datasets[j].Name, 10)
+		if !ok {
+			return false
+		}
+		return sI.Cmp(sj) == -1
+	})
 
 	if _, err := collection.UpdateOne(context.Background(), bson.M{"name": name}, bson.D{{"$set", &models.MultiSeriesChart{
 		Name:       name,

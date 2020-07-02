@@ -19,8 +19,8 @@ func (sbo DateValuesSlice) Swap(i, j int) {
 }
 
 func (sbo DateValuesSlice) Less(i, j int) bool {
-	ti, _ := time.Parse("02/01/06", sbo.Dates[i])
-	tj, _ := time.Parse("02/01/06", sbo.Dates[j])
+	ti, _ := time.Parse("01/02/06", sbo.Dates[i])
+	tj, _ := time.Parse("01/02/06", sbo.Dates[j])
 
 	return ti.Before(tj)
 }

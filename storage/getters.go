@@ -237,12 +237,19 @@ func (m *MongoDB) GetNumberStringChart(name string, limit int) (models.NumberStr
 	return chart, err
 }
 
-func (m *MongoDB) GetMultiSeriesChart(name string) (models.MultiSeriesChart, error) {
+func (m *MongoDB) GetMultiSeriesChart(name string, limit int) (models.MultiSeriesChart, error) {
 	var chart models.MultiSeriesChart
 
 	err := m.C(models.CHARTS).FindOne(context.Background(), bson.M{"name": name}, options.FindOne()).Decode(&chart)
 	if err != nil {
 		return models.MultiSeriesChart{}, err
+	}
+
+	if limit > 0 {
+		for _, series := range chart.Datasets {
+			series.SliceTime(limit)
+		}
+		chart.Timestamps = chart.Timestamps[len(chart.Timestamps)-limit : len(chart.Timestamps)-1]
 	}
 
 	return chart, err

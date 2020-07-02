@@ -133,6 +133,7 @@ func (c *Crawler) CrawlTransactions() {
 				gasUsed:         gasUsed,
 				txFees:          txFees,
 				gasPriceLevels:  gasPriceLevels,
+				gasUsedLevels:   gasUsedLevels,
 				gasLevels:       gasLevels,
 				transactedValue: transactedValue,
 			}
@@ -209,7 +210,7 @@ func (c *Crawler) CrawlTransactions() {
 			}
 		}
 
-		for gu, txns := range elem.gasLevels {
+		for gu, txns := range elem.gasUsedLevels {
 			//Use gas amount as key
 			gU, _ := new(big.Int).SetString(gu, 10)
 			gasUsed := gU.String()

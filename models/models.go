@@ -2,6 +2,7 @@ package models
 
 import (
 	"net"
+	"time"
 
 	"github.com/ubiq/go-ubiq/p2p/enode"
 )
@@ -55,13 +56,39 @@ type NumberStringChart struct {
 }
 
 type MultiSeriesChart struct {
-	Name       string               `bson:"name" json:"name"`
-	Datasets   []MultiSeriesDataset `bson:"datasets" json:"datasets"`
-	Timestamps []string             `bson:"timestamps" json:"timestamps"`
+	Name       string                `bson:"name" json:"name"`
+	Datasets   []*MultiSeriesDataset `bson:"datasets" json:"datasets"`
+	Timestamps []string              `bson:"timestamps" json:"timestamps"`
 }
 
 type MultiSeriesDataset struct {
 	Name       string   `bson:"name" json:"name"`
 	Series     []uint   `bson:"series" json:"series"`
 	Timestamps []string `bson:"timestamps" json:"timestamps"`
+}
+
+func (msd MultiSeriesDataset) Len() int {
+	return len(msd.Series)
+}
+
+func (msd *MultiSeriesDataset) SliceTime(daysBack int) {
+
+	from, to := 0, msd.Len()
+
+	endOfYesterday := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()-1, 23, 59, 59, 0, time.Local)
+
+	timeLimit := endOfYesterday.Add(time.Duration(-daysBack) * (24 * time.Hour))
+
+	for k, v := range msd.Timestamps {
+		ts, _ := time.Parse("01/02/06", v)
+
+		if ts.After(timeLimit) {
+			break
+		}
+		from = k
+	}
+
+	msd.Timestamps = msd.Timestamps[from:to]
+	msd.Series = msd.Series[from:to]
+
 }
