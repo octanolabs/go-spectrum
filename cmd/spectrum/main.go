@@ -94,7 +94,7 @@ func main() {
 	mongo, err := storage.NewConnection(&cfg.Mongo) // TODO - iquidus: fix this check
 
 	if err != nil {
-		mainLogger.Error("Can't establish connection to mongo: %v", err)
+		mainLogger.Error("can't establish connection to mongo", "err", err)
 	} else {
 		mainLogger.Info("Successfully connected to mongo", "addr", cfg.Mongo.Address)
 	}
