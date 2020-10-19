@@ -9,7 +9,7 @@ require (
 	github.com/deckarep/golang-set v1.7.1 // indirect
 	github.com/edsrzf/mmap-go v1.0.0 // indirect
 	github.com/ethereum/go-ethereum v1.9.23 // indirect
-	github.com/gdamore/tcell v1.4.0
+	github.com/gdamore/tcell/v2 v2.0.1-0.20201017141208-acf90d56d591
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-gonic/gin v1.6.3
 	github.com/hashicorp/golang-lru v0.5.4
@@ -21,4 +21,5 @@ require (
 	github.com/sirupsen/logrus v1.4.2
 	github.com/ubiq/go-ubiq v2.3.0+incompatible
 	go.mongodb.org/mongo-driver v1.4.2
+	golang.org/x/sys v0.0.0-20201018230417-eeed37f84f13 // indirect
 )
