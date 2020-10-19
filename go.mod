@@ -12,6 +12,7 @@ require (
 	github.com/gdamore/tcell/v2 v2.0.1-0.20201017141208-acf90d56d591
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-gonic/gin v1.6.3
+	github.com/golang/snappy v0.0.2 // indirect
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/json-iterator/go v1.1.10
@@ -19,7 +20,8 @@ require (
 	github.com/rivo/tview v0.0.0-20201018122409-d551c850a743
 	github.com/rs/cors v1.6.0 // indirect
 	github.com/sirupsen/logrus v1.4.2
-	github.com/ubiq/go-ubiq v2.3.0+incompatible
+	github.com/ubiq/go-ubiq v3.0.1+incompatible
 	go.mongodb.org/mongo-driver v1.4.2
+	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897 // indirect
 	golang.org/x/sys v0.0.0-20201018230417-eeed37f84f13 // indirect
 )
