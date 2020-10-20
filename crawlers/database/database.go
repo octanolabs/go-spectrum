@@ -21,10 +21,6 @@ func NewDbCrawler(db *storage.MongoDB, cfg *Config, logger log.Logger) *Crawler 
 	return &Crawler{db, cfg, logger}
 }
 
-func (c *Crawler) Start() {
-	c.logger.Info("Started database crawler")
-}
-
 func (c *Crawler) RunLoop() {
 
 	if s, err := c.backend.Status(); err == nil && s.LatestBlock.Number == 0 {

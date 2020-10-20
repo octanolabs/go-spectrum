@@ -15,11 +15,6 @@ import (
 	"github.com/octanolabs/go-spectrum/util"
 )
 
-//TODO:
-// refactor with this:
-// github.com/ubiq/go-ubiq/ethclient
-// (maybe should also remove models and use github.com/ubiq/go-ubiq/types)
-
 type Config struct {
 	Type     string `json:"type"`
 	Endpoint string `json:"endpoint"`
@@ -139,7 +134,7 @@ func (r *RPCClient) GetUnclesInBlock(uncles []string, height uint64) ([]models.U
 func (r *RPCClient) LatestBlockNumber() (uint64, error) {
 	var bn string
 
-	err := r.client.Call(&bn, "eth_blockNumber", []interface{}{})
+	err := r.client.Call(&bn, "eth_blockNumber")
 	if err != nil {
 		return 0, err
 	}
@@ -160,11 +155,13 @@ func (r *RPCClient) GetTxReceipt(hash string) (models.TxReceipt, error) {
 	return reply.Convert(), nil
 }
 
-func (r *RPCClient) Ping() error {
-	err := r.client.Call(nil, "web3_clientVersion", []interface{}{})
+func (r *RPCClient) Ping() (string, error) {
+	var version string
+
+	err := r.client.Call(&version, "web3_clientVersion")
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	return nil
+	return version, nil
 }

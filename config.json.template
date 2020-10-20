@@ -1,17 +1,16 @@
-
 {
   "threads":4,
   "crawlers": {
     "enabled": true,
-    "block_crawler": {
+    "blocks": {
         "enabled": true,
         "interval": "500ms",
         "routines": 5
     },
-    "db_crawler": {
-       "enabled": false
-       "interval": "300s",
-    },
+    "database": {
+       "enabled": false,
+       "interval": "300s"
+    }
   },
   "api": {
     "enabled": false,
@@ -23,13 +22,14 @@
     }
   },
   "mongo": {
+    "symbol": "UBQ",
     "address": "127.0.0.1:27017",
-    "database": "spectrum-test",
-    "user": "spectrum",
-    "password": "UBQ4Lyfe"
+    "database": "DB_NAME",
+    "user": "DB_USER",
+    "password": "DB_PASSWORD"
   },
   "rpc": {
-    "type": "http"
-    "url": "127.0.0.1:8588",
+    "type": "http",
+    "url": "127.0.0.1:8588"
   }
 }

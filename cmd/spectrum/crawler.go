@@ -15,14 +15,15 @@ func startCrawlers(mongo *storage.MongoDB, cfg *crawlers.Config, logger log.Logg
 
 	if cfg.BlockCrawler.Enabled {
 		blockCrawler := block.NewBlockCrawler(mongo, &cfg.BlockCrawler, logger.New("crawler", "block"), rpc)
-		blockCrawler.Start()
+		logger.Info("Starting block Crawler")
 		crawlerMap["blocks"] = blockCrawler
 	}
 
 	if cfg.DatabaseCrawler.Enabled {
 		dbCrawler := database.NewDbCrawler(mongo, &cfg.DatabaseCrawler, logger.New("crawler", "database"))
-		dbCrawler.Start()
+		logger.Info("Starting database crawler")
 		crawlerMap["database"] = dbCrawler
+
 	}
 
 	crawlers.RunCrawlers(crawlerMap, cfg, logger)

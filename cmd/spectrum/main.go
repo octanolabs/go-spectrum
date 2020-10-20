@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"runtime"
 
@@ -107,12 +108,34 @@ func main() {
 		mainLogger.Info("mongo: PONG")
 	}
 
+	if mongo.IsFirstRun() {
+		mongo.Init()
+		mainLogger.Warn("mongo: initialized sysStore, genesis, indexes")
+	}
+
 	rpcClient := rpc.NewRPCClient(&cfg.Rpc)
+
+	version, err := rpcClient.Ping()
+
+	if err != nil {
+		switch err.(type) {
+		case *url.Error:
+			mainLogger.Error("gubiq node offline", "err", err)
+			os.Exit(1)
+		default:
+			mainLogger.Error(fmt.Sprintf("error pinging gubiq node (%T)", err), "err", err)
+		}
+	}
+
+	mainLogger.Info("connected to gubiq rpc server", "version", version)
 
 	if cfg.Crawlers.Enabled {
 		go startCrawlers(mongo, &cfg.Crawlers, appLogger, rpcClient)
 	} else if cfg.Api.Enabled {
 		go startApi(mongo, &cfg.Api, appLogger.New("pkg", "api"))
+	} else {
+		mainLogger.Error("No crawlers enabled. exiting.")
+		os.Exit(1)
 	}
 
 	if enableLogUi {

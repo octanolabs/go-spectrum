@@ -62,8 +62,6 @@ func (m *MongoDB) Init() {
 	}
 
 	m.initIndexes()
-
-	log.Warn("initialized sysStore, genesis, indexes")
 }
 
 func (m *MongoDB) initIndexes() {
