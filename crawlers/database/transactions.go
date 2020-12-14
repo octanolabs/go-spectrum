@@ -86,8 +86,6 @@ func (c *Crawler) CrawlTransactions() {
 			return
 		}
 
-		c.logger.Debug("decoded transaction", "block", transaction.BlockNumber)
-
 		currentTransaction := transaction
 
 		sync.AddLink(func(task *syncronizer.Task) {

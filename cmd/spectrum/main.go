@@ -11,7 +11,7 @@ import (
 
 	"github.com/octanolabs/go-spectrum/util/logui"
 
-	"github.com/ubiq/go-ubiq/log"
+	"github.com/ubiq/go-ubiq/v3/log"
 
 	"github.com/octanolabs/go-spectrum/config"
 	"github.com/octanolabs/go-spectrum/params"

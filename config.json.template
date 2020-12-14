@@ -10,6 +10,10 @@
     "database": {
        "enabled": false,
        "interval": "300s"
+       "tracing": {
+          "start_block": 0,
+          "batch_size": 1000
+       }
     }
   },
   "api": {

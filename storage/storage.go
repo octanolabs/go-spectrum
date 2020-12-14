@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/octanolabs/go-spectrum/models"
-	"github.com/ubiq/go-ubiq/log"
+	"github.com/ubiq/go-ubiq/v3/log"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -119,6 +119,7 @@ func (m *MongoDB) UpdateStore() error {
 	var (
 		txCount, transferCount, uncleCount, forkedBlockCount, contractsDeployedCount, contractCallsCount int64
 		latestBlock                                                                                      models.Block
+		latestTrace                                                                                      models.TxTrace
 	)
 
 	collection := m.C(models.STORE)
@@ -158,11 +159,17 @@ func (m *MongoDB) UpdateStore() error {
 		return err
 	}
 
+	latestTrace, err = m.LatestTxTrace()
+	if err != nil {
+		return err
+	}
+
 	filter := bson.M{"symbol": m.symbol}
 	update := bson.D{{"$set", bson.M{
 		"updated":                time.Now().Unix(),
 		"supply":                 latestBlock.Supply,
 		"latestBlock":            latestBlock,
+		"latestTraceHash":        latestTrace.OriginTxHash,
 		"totalTransactions":      txCount,
 		"totalContractsDeployed": contractsDeployedCount,
 		"totalContractCalls":     contractCallsCount,
@@ -181,4 +188,42 @@ func (m *MongoDB) UpdateStore() error {
 	}
 	return nil
 
+}
+
+//TODO: refactor this to accept a param which will be the block number from which to start syncing forward; invert the sorting; when one of these is done store the reached block in sysstore
+func (m *MongoDB) LatestTxHashes(n int, startBlock uint64) ([]string, []int64, error) {
+
+	pipe := mongo.Pipeline{
+		//match documents where blockNo is greater than startBlock
+		{{"$match", bson.M{"blockNumber": bson.M{"$gte": startBlock}}}},
+		//sort in descending order
+		{{"$sort", bson.D{{"blockNumber", 1}}}},
+		// limit results - works great with sort & reduces query time
+		{{"$limit", n}},
+		// include only hash & blockNo in result, drop _id
+		{{"$project", bson.D{{"hash", 1}, {"blockNumber", 1}, {"_id", 0}}}},
+	}
+
+	c, err := m.C(models.TXNS).Aggregate(context.Background(), pipe, options.Aggregate().SetHint("txBlockNumberIndex"))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	res := make([]map[string]interface{}, 0)
+
+	err = c.All(context.Background(), &res)
+
+	hashes := make([]string, 0)
+	numbers := make([]int64, 0)
+
+	for _, v := range res {
+		if hash := v["hash"].(string); hash != "" {
+			hashes = append(hashes, hash)
+		}
+		if bn := v["blockNumber"].(int64); bn != 0 {
+			numbers = append(numbers, bn)
+		}
+	}
+
+	return hashes, numbers, nil
 }

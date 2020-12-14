@@ -20,6 +20,15 @@ func (m *MongoDB) AddTransaction(tx *models.Transaction) error {
 	return nil
 }
 
+func (m *MongoDB) AddTxTrace(itxn *models.TxTrace) error {
+	collection := m.C(models.INTERNALTXNS)
+
+	if _, err := collection.InsertOne(context.Background(), itxn, options.InsertOne()); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (m *MongoDB) AddDeployedContract(tx *models.Transaction) error {
 	collection := m.C(models.CONTRACTS)
 

@@ -6,7 +6,7 @@ import (
 	"github.com/octanolabs/go-spectrum/crawlers/database"
 	"github.com/octanolabs/go-spectrum/rpc"
 	"github.com/octanolabs/go-spectrum/storage"
-	"github.com/ubiq/go-ubiq/log"
+	"github.com/ubiq/go-ubiq/v3/log"
 )
 
 func startCrawlers(mongo *storage.MongoDB, cfg *crawlers.Config, logger log.Logger, rpc *rpc.RPCClient) {

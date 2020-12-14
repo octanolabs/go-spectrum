@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"github.com/octanolabs/go-spectrum/models"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -12,7 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	json "github.com/json-iterator/go"
-	"github.com/ubiq/go-ubiq/log"
+	"github.com/ubiq/go-ubiq/v3/log"
 )
 
 // v3 helper functions
@@ -20,6 +21,7 @@ import (
 
 var legacyHandlers = map[*regexp.Regexp]func(re *regexp.Regexp, url string) (io.Reader, int64, string){
 
+	//TODO: add back ?supplyOnly query for coinmarketcap
 	regexp.MustCompile(`^/v3/(?:status)$`): jsonhttphelper("explorer_status"),
 
 	regexp.MustCompile(`^/v3/(?:latest)$`):                        jsonhttphelper("explorer_latestBlock"),
@@ -169,7 +171,14 @@ func v3ConvertRequest() gin.HandlerFunc {
 
 func v3ConvertResponse() gin.HandlerFunc {
 	return func(context *gin.Context) {
-		context.Writer = v3ConvertResponseWriter{ResponseWriter: context.Writer}
+
+		_, ok := context.Request.URL.Query()["supplyOnly"]
+
+		if context.Param("path") == "/status" && ok {
+			context.Writer = v3SupplyOnlyResponseWriter{ResponseWriter: context.Writer}
+		} else {
+			context.Writer = v3ConvertResponseWriter{ResponseWriter: context.Writer}
+		}
 	}
 }
 
@@ -192,4 +201,31 @@ func (r v3ConvertResponseWriter) Write(b []byte) (int, error) {
 	}
 
 	return r.ResponseWriter.Write(req.Body)
+}
+
+type v3SupplyOnlyResponseWriter struct {
+	gin.ResponseWriter
+}
+
+func (r v3SupplyOnlyResponseWriter) Write(b []byte) (int, error) {
+
+	var (
+		req struct {
+			Body models.Store `json:"result"`
+		}
+	)
+
+	err := json.Unmarshal(b, &req)
+	if err != nil {
+		log.Error("Error: couldn't marshal response body", "err", err)
+		return 0, err
+	}
+
+	bb, err := json.Marshal(req.Body.Supply)
+	if err != nil {
+		log.Error("Error: couldn't marshal response body", "err", err)
+		return 0, err
+	}
+
+	return r.ResponseWriter.Write(bb)
 }

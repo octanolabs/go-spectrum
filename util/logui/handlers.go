@@ -3,7 +3,7 @@ package logui
 import (
 	"github.com/rivo/tview"
 
-	"github.com/ubiq/go-ubiq/log"
+	"github.com/ubiq/go-ubiq/v3/log"
 )
 
 type PassthroughHandler struct {

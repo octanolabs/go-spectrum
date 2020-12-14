@@ -4,12 +4,13 @@ import (
 	"net"
 	"time"
 
-	"github.com/ubiq/go-ubiq/p2p/enode"
+	"github.com/ubiq/go-ubiq/v3/p2p/enode"
 )
 
 const (
 	BLOCKS        = "blocks"
 	TXNS          = "transactions"
+	INTERNALTXNS  = "internaltxns"
 	UNCLES        = "uncles"
 	CONTRACTS     = "contracts"
 	CONTRACTCALLS = "contractcalls"
@@ -21,11 +22,13 @@ const (
 )
 
 type Store struct {
-	Timestamp   int64  `bson:"timestamp" json:"timestamp"`
-	Symbol      string `bson:"symbol" json:"symbol"`
+	Symbol string `bson:"symbol" json:"symbol"`
+
+	Timestamp   int64  `bson:"updated" json:"updated"`
 	Supply      string `bson:"supply" json:"supply"`
 	LatestBlock Block  `bson:"latestBlock" json:"latestBlock"`
-	Price       string `bson:"price" json:"price"`
+
+	LatestTraceHash string `json:"latestTraceHash" bson:"latestTraceHash"`
 
 	TotalTransactions      int64 `bson:"totalTransactions" json:"totalTransactions"`
 	TotalContractsDeployed int64 `bson:"totalContractsDeployed" json:"totalContractsDeployed"`

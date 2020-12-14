@@ -2,7 +2,7 @@ package database
 
 import (
 	"github.com/octanolabs/go-spectrum/storage"
-	"github.com/ubiq/go-ubiq/log"
+	"github.com/ubiq/go-ubiq/v3/log"
 	"time"
 )
 
@@ -22,19 +22,18 @@ func NewDbCrawler(db *storage.MongoDB, cfg *Config, logger log.Logger) *Crawler 
 }
 
 func (c *Crawler) RunLoop() {
-
 	if s, err := c.backend.Status(); err == nil && s.LatestBlock.Number == 0 {
 		c.logger.Error("skipping cycle, the database is empty")
 	} else {
-		s := time.Now()
-
+		start := time.Now()
 		c.CrawlBlocks()
 
-		c.logger.Info("crawled blocks collection", "took", time.Since(s))
+		c.logger.Info("crawled blocks collection", "took", time.Since(start))
 
+		start = time.Now()
 		c.CrawlTransactions()
 
-		c.logger.Info("crawled transactions collection", "took", time.Since(s))
+		c.logger.Info("crawled transactions collection", "took", time.Since(start))
 	}
 }
 

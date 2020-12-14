@@ -2,7 +2,7 @@ package models
 
 import (
 	"github.com/octanolabs/go-spectrum/util"
-	"github.com/ubiq/go-ubiq/log"
+	"github.com/ubiq/go-ubiq/v3/log"
 )
 
 type RawTransaction struct {
@@ -261,4 +261,61 @@ type TxLog struct {
 	BlockHash        string   `bson:"blockHash" json:"blockHash"`
 	LogIndex         string   `bson:"logIndex" json:"logIndex"`
 	Removed          bool     `bson:"removed" json:"removed"`
+}
+
+// RawTxTrace is what we get from the node tracer
+type RawTxTrace struct {
+	Type    string       `json:"type"`
+	From    string       `json:"from"`
+	To      string       `json:"to"`
+	Value   string       `json:"value,omitempty"` // hex
+	Gas     string       `json:"gas"`             // hex
+	GasUsed string       `json:"gasUsed"`         // hex
+	Input   string       `json:"input"`
+	Output  string       `json:"output"`
+	Time    string       `json:"-"`
+	Calls   []RawTxTrace `json:"calls,omitempty"`
+}
+
+func (rtt *RawTxTrace) Convert() InternalTx {
+	t := InternalTx{
+		Type:    rtt.Type,
+		From:    rtt.From,
+		To:      rtt.To,
+		Value:   util.DecodeValueHex(rtt.Value),
+		Gas:     util.DecodeValueHex(rtt.Gas),
+		GasUsed: util.DecodeValueHex(rtt.GasUsed),
+		Input:   rtt.Input,
+		Output:  rtt.Output,
+		Calls:   nil,
+	}
+
+	if rtt.Calls != nil {
+		t.Calls = []InternalTx{}
+		for _, nestedTrace := range rtt.Calls {
+			t.Calls = append(t.Calls, nestedTrace.Convert())
+		}
+	}
+
+	return t
+}
+
+//TxTrace is a 'meta' schema that includes a trace, the originating txhash and the block number the it was included in
+type TxTrace struct {
+	OriginTxHash  string `json:"hash" bson:"hash"`
+	OriginBlockNo int64  `json:"number" bson:"number"`
+	Trace         InternalTx
+}
+
+// InternalTx the schema representing the state transitions
+type InternalTx struct {
+	Type    string       `json:"type" bson:"type"`
+	From    string       `json:"from" bson:"from"`
+	To      string       `json:"to" bson:"to"`
+	Value   string       `json:"value,omitempty" bson:"value,omitempty"` //convert to number -> string
+	Gas     string       `json:"gas" bson:"gas"`                         //convert to number -> string
+	GasUsed string       `json:"gasUsed" bson:"gasUsed"`                 //convert to number -> string
+	Input   string       `json:"input" bson:"input"`
+	Output  string       `json:"output" bson:"output"`
+	Calls   []InternalTx `json:"calls,omitempty" bson:"calls,omitempty"`
 }

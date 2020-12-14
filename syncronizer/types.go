@@ -3,7 +3,7 @@ package syncronizer
 import (
 	"os"
 
-	"github.com/ubiq/go-ubiq/log"
+	"github.com/ubiq/go-ubiq/v3/log"
 )
 
 // Returns a new sync object with no routines
@@ -23,7 +23,7 @@ func NewSync(maxRoutines int) *Synchronizer {
 	s.routines = make(chan *Task, maxRoutines)
 
 	// Buffered channels so sends on these don't block
-	s.abortChan = make(chan *Task, 1)
+	s.abortChan = make(chan *Task, maxRoutines)
 	s.quitChan = make(chan int, 1)
 
 	// Unbuffered so this blocks

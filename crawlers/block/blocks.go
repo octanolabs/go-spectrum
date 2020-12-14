@@ -3,11 +3,10 @@ package block
 import (
 	"errors"
 	"fmt"
+	"github.com/ubiq/go-ubiq/v3/log"
 	"math/big"
 	"strconv"
 	"time"
-
-	log "github.com/sirupsen/logrus"
 
 	"github.com/octanolabs/go-spectrum/models"
 
@@ -15,6 +14,117 @@ import (
 )
 
 func (c *Crawler) RunLoop() {
+
+	c.logChan = make(chan *logObject)
+
+	c.crawBlocks()
+
+	close(c.logChan)
+
+	var startBlock = c.cfg.Tracing.StartBlock
+
+	t, err := c.backend.LatestTxTrace()
+	if err != nil {
+		c.logger.Debug("error: couldn't get latest tx trace", " err", err)
+	} else {
+		startBlock = uint64(t.OriginBlockNo + 1)
+	}
+
+	//c.logger.Info("starting tx tracing", "batchSize", c.cfg.Tracing.BatchSize, "traceFrom", startBlock)
+
+	c.crawlTxTraces(startBlock)
+
+	err = c.backend.UpdateStore()
+
+	if err != nil {
+		c.logger.Error("Error updating store", "err", err)
+	}
+
+	c.state.syncing = false
+}
+
+func (c *Crawler) crawlTxTraces(startBlock uint64) {
+
+	if s, err := c.backend.Status(); err == nil && s.LatestBlock.Number < c.cfg.Tracing.StartBlock {
+		c.logger.Error("skipping cycle, didn't sync past startBlock yet")
+	} else {
+
+		latestBlock, err := c.backend.LatestBlock()
+		if err != nil {
+			c.logger.Error("couldn't get latest block", "err", err)
+			return
+		}
+
+		sync := syncronizer.NewSync(25)
+
+		for b := startBlock; b < latestBlock.Number; b += uint64(c.cfg.Tracing.BatchSize) + 1 {
+			t := time.Now()
+
+			c.logger.Debug("syncing tx traces tx traces", "t", t.String(), "b", b)
+
+			hashes, blockNos, err := c.backend.LatestTxHashes(c.cfg.Tracing.BatchSize, b)
+			if err != nil {
+				c.logger.Error("error getting trace data", "err", err)
+			}
+
+			c.logger.Debug("latest", "hashes", hashes, "bns", blockNos)
+
+			if len(hashes) == 0 {
+				c.logger.Warn("no traces to sync")
+				break
+			}
+
+			c.syncTxTraces(sync, hashes, blockNos)
+			c.logger.Info("synced tx traces", "head", blockNos[len(blockNos)-1], "count", len(hashes), "took", time.Since(t).String())
+
+		}
+
+		if aborted := sync.Finish(); aborted {
+			log.Error("aborted sync")
+		}
+	}
+}
+
+func (c *Crawler) syncTxTraces(sync *syncronizer.Synchronizer, hashes []string, blockNos []int64) {
+
+	for idx, txh := range hashes {
+
+		hash := txh
+		bn := blockNos[idx]
+
+		//TODO: multiple errors causing simultaneous aborts make synchronizer hang
+		// figure out why (to reproduce remove timout from trace rpc call)
+		sync.AddLink(func(task *syncronizer.Task) {
+
+			itx, err := c.rpc.TraceTransaction(hash)
+			if err != nil {
+				c.logger.Error("couldn't get internal tx", "hash", hash, "bn", bn, "err", err)
+				task.AbortSync()
+				return
+			}
+
+			if closed := task.Link(); closed {
+				return
+			}
+
+			trace := &models.TxTrace{
+				OriginTxHash:  hash,
+				OriginBlockNo: bn,
+				Trace:         itx,
+			}
+
+			err = c.backend.AddTxTrace(trace)
+			if err != nil {
+				log.Error("couldn't add trace to db", "err", err)
+				task.AbortSync()
+				return
+			}
+		})
+	}
+	return
+}
+
+func (c *Crawler) crawBlocks() {
 	var currentBlock uint64
 
 	if c.state.syncing {
@@ -22,7 +132,7 @@ func (c *Crawler) RunLoop() {
 		return
 	}
 
-	c.logChan = make(chan *logObject)
+	c.state.syncing = true
 
 	// get db head
 	indexHead, err := c.backend.LatestBlock()
@@ -38,19 +148,18 @@ func (c *Crawler) RunLoop() {
 		c.logger.Error("couldn't get block number", "err", err)
 	}
 
-	taskChain := syncronizer.NewSync(c.cfg.MaxRoutines)
-
-	c.state.syncing = true
 	currentBlock = indexHead.Number + 1
 
 	syncLogger := c.logger.New("pkg", "sync", "blockNumber", strconv.FormatInt(int64(currentBlock), 10))
+	startLogger(c.logChan, syncLogger)
 
 	start := time.Now()
 
 	syncLogger.Debug("started sync at", "t", start)
 
-	startLogger(c.logChan, syncLogger)
-
+	taskChain := syncronizer.NewSync(c.cfg.MaxRoutines)
+	//TODO: look into: if GetBlockByHeight() fails, the taskchain stops but the loop keeps going until chainHead is reached
+	// maybe introduce a new metod on syncronizer like DidAbort that can be used in loop condition to quit
 	for ; currentBlock <= chainHead; currentBlock++ {
 
 		// capture blockNumber
@@ -85,15 +194,6 @@ func (c *Crawler) RunLoop() {
 	} else {
 		syncLogger.Debug("terminated sync", "t", time.Since(start))
 	}
-
-	err = c.backend.UpdateStore()
-
-	if err != nil {
-		c.logger.Error("Error updating store", "err", err)
-	}
-
-	c.state.syncing = false
-	close(c.logChan)
 }
 
 func (c *Crawler) syncBlock(block models.Block, task *syncronizer.Task) {
@@ -261,6 +361,23 @@ func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uin
 			c.processTransaction(&tx, receipt, data)
 		})
 
+		//txSync.AddLink(func(t *syncronizer.Task) {
+		//
+		//	txTrace, err := c.rpc.TraceTransaction(tx.Hash)
+		//	if err != nil {
+		//		c.logger.Error("couldn't get tx receipt", "err", err)
+		//	}
+		//	closed := t.Link()
+		//	if closed {
+		//		return
+		//	}
+		//
+		//	err = c.backend.AddTxTrace(txTrace)
+		//	if err != nil {
+		//		c.logger.Error("couldn't store tx trace", "err", err)
+		//	}
+		//})
+
 		// If tx is a token transfer we add another link right after
 
 		if tx.IsTokenTransfer() {
@@ -334,7 +451,7 @@ func (c *Crawler) processTokenTransfer(transfer *models.TokenTransfer, tx *model
 
 	err := c.backend.AddTokenTransfer(transfer)
 	if err != nil {
-		log.Errorf("couldn't insert token transfer into backend", "err", err)
+		c.logger.Error("couldn't insert token transfer into backend", "err", err)
 	}
 
 }

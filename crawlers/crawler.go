@@ -3,7 +3,7 @@ package crawlers
 import (
 	"github.com/octanolabs/go-spectrum/crawlers/block"
 	"github.com/octanolabs/go-spectrum/crawlers/database"
-	"github.com/ubiq/go-ubiq/log"
+	"github.com/ubiq/go-ubiq/v3/log"
 	"os"
 	"time"
 )

@@ -9,7 +9,7 @@ import (
 
 	json "github.com/json-iterator/go"
 
-	"github.com/ubiq/go-ubiq/log"
+	"github.com/ubiq/go-ubiq/v3/log"
 )
 
 func MakeTimestamp() int64 {
@@ -76,6 +76,11 @@ func DecodeHex(str string) uint64 {
 }
 
 func DecodeValueHex(val string) string {
+
+	if len(val) < 2 || val == "0x0" {
+		return "0"
+	}
+
 	if val[:2] == "0x" {
 		x, err := DecodeBig(val)
 

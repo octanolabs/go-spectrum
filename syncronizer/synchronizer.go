@@ -84,6 +84,7 @@ func (s *Synchronizer) AddLink(body func(*Task)) {
 
 	s.routines <- nr
 
+	return
 }
 
 // Finish hangs until all tasks have completed executions, and there are no more tasks

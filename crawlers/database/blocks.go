@@ -78,8 +78,6 @@ func (c *Crawler) CrawlBlocks() {
 			return
 		}
 
-		c.logger.Debug("decoded block", "number", block.Number)
-
 		currentBlock := block
 		prevStamp := stamp
 

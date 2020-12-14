@@ -5,8 +5,8 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/ubiq/go-ubiq/log"
-	"github.com/ubiq/go-ubiq/rpc"
+	"github.com/ubiq/go-ubiq/v3/log"
+	"github.com/ubiq/go-ubiq/v3/rpc"
 )
 
 type Config struct {
@@ -52,7 +52,7 @@ func (a *ApiServer) Start() {
 	v3.Use(v3ConvertRequest())
 	v3.Use(jsonParserMiddleware())
 	v3.Use(jsonLoggerMiddleware(a.logger.New("endpoint", "/v3")))
-	v3.Use(v3ConvertResponse())
+	v3.Use(v3ConvertResponse(a.handlers.Status))
 
 	{
 		v3.GET("/*path", v4RouterHandler(rpcServer))
@@ -63,6 +63,7 @@ func (a *ApiServer) Start() {
 	v4.Use(jsonParserMiddleware())
 	v4.Use(jsonLoggerMiddleware(a.logger.New("endpoint", "/v4")))
 
+	// Sending a request without and id field will return an empty body
 	{
 		v4.POST("/", v4RouterHandler(rpcServer))
 	}

@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"os"
+	"time"
 
-	log "github.com/ubiq/go-ubiq/log"
+	"github.com/ubiq/go-ubiq/v3/log"
 
 	"github.com/mitchellh/go-homedir"
-	"github.com/ubiq/go-ubiq/common/hexutil"
-	"github.com/ubiq/go-ubiq/rpc"
+	"github.com/ubiq/go-ubiq/v3/common/hexutil"
+	"github.com/ubiq/go-ubiq/v3/rpc"
 
 	"github.com/octanolabs/go-spectrum/models"
 	"github.com/octanolabs/go-spectrum/util"
@@ -164,4 +165,23 @@ func (r *RPCClient) Ping() (string, error) {
 	}
 
 	return version, nil
+}
+
+func (r *RPCClient) TraceTransaction(hash string) (models.InternalTx, error) {
+	var trace models.RawTxTrace
+
+	c, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+
+	defer cancel()
+
+	err := r.client.CallContext(c, &trace, "debug_traceTransaction", hash, map[string]interface{}{
+		"tracer": "callTracer",
+		//if tracer errors out with "execution timeout" increase this timeout
+		"timeout": "300s",
+	})
+	if err != nil {
+		return models.InternalTx{}, err
+	}
+
+	return trace.Convert(), nil
 }

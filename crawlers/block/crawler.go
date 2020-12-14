@@ -4,7 +4,7 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/octanolabs/go-spectrum/rpc"
 	"github.com/octanolabs/go-spectrum/storage"
-	"github.com/ubiq/go-ubiq/log"
+	"github.com/ubiq/go-ubiq/v3/log"
 	"math/big"
 )
 
@@ -21,6 +21,10 @@ type Config struct {
 	Enabled     bool   `json:"enabled"`
 	Interval    string `json:"interval"`
 	MaxRoutines int    `json:"routines"`
+	Tracing     struct {
+		StartBlock uint64 `json:"start_block"`
+		BatchSize  int    `json:"batch_size"`
+	} `json:"tracing"`
 }
 
 type Crawler struct {

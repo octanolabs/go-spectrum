@@ -124,6 +124,28 @@ func (m *MongoDB) TotalTxnCount() (int64, error) {
 	return count, err
 }
 
+// Tx trace
+
+func (m *MongoDB) TxTrace(hash string) (models.InternalTx, error) {
+	var itxn models.TxTrace
+
+	c := m.C(models.INTERNALTXNS).FindOne(context.Background(), bson.M{"hash": hash}, options.FindOne())
+
+	err := c.Decode(&itxn)
+	if err != nil {
+		return models.InternalTx{}, err
+	}
+
+	return itxn.Trace, err
+}
+
+func (m *MongoDB) LatestTxTrace() (models.TxTrace, error) {
+	var trace models.TxTrace
+
+	err := m.C(models.INTERNALTXNS).FindOne(context.Background(), bson.M{}, options.FindOne().SetSort(bson.D{{"number", -1}})).Decode(&trace)
+	return trace, err
+}
+
 // Contracts
 
 func (m *MongoDB) TotalContractCallsCount() (int64, error) {

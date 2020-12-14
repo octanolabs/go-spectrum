@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/octanolabs/go-spectrum/api"
 	"github.com/octanolabs/go-spectrum/storage"
-	"github.com/ubiq/go-ubiq/log"
+	"github.com/ubiq/go-ubiq/v3/log"
 )
 
 func startApi(mongo *storage.MongoDB, cfg *api.Config, logger log.Logger) {
