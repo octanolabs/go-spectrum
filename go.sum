@@ -393,6 +393,7 @@ github.com/ubiq/go-ubiq v3.0.1+incompatible h1:7yJwLHnvQ3deanC7k5IXBWikOdbpYUuOx
 github.com/ubiq/go-ubiq v3.0.1+incompatible/go.mod h1:CDTbVZC94B833AgkH14z81twfLs7CD5tV8a7vu/CH4U=
 github.com/ubiq/go-ubiq/v3 v3.2.2 h1:L3BRYSSttr0tRQl3975EiFPP5bqloxUpkYoF/tMW37c=
 github.com/ubiq/go-ubiq/v3 v3.2.2/go.mod h1:hYhaHjyj+SipRJ7OXmcz7OMH4g/vxL/ges7Bj+v9hos=
+github.com/ubiq/go-ubiq/v3 v3.2.3/go.mod h1:hYhaHjyj+SipRJ7OXmcz7OMH4g/vxL/ges7Bj+v9hos=
 github.com/ugorji/go v1.1.7 h1:/68gy2h+1mWMrwZFeD1kQialdSzAb432dtpeJ42ovdo=
 github.com/ugorji/go v1.1.7/go.mod h1:kZn38zHttfInRq0xu/PH0az30d+z6vm202qpg1oXVMw=
 github.com/ugorji/go v1.2.1 h1:dz+JxTe7GZQdErTo7SREc1jQj/hFP1k7jyIAwODoW+k=
