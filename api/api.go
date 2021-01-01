@@ -52,7 +52,7 @@ func (a *ApiServer) Start() {
 	v3.Use(v3ConvertRequest())
 	v3.Use(jsonParserMiddleware())
 	v3.Use(jsonLoggerMiddleware(a.logger.New("endpoint", "/v3")))
-	v3.Use(v3ConvertResponse(a.handlers.Status))
+	v3.Use(v3ConvertResponse())
 
 	{
 		v3.GET("/*path", v4RouterHandler(rpcServer))
