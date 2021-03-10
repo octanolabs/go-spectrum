@@ -25,7 +25,7 @@ require (
 	github.com/ubiq/go-ubiq v3.0.1+incompatible // indirect
 	github.com/ubiq/go-ubiq/v3 v3.2.2
 	github.com/ugorji/go v1.2.1 // indirect
-	go.mongodb.org/mongo-driver v1.4.4
+	go.mongodb.org/mongo-driver v1.5.0
 	golang.org/x/crypto v0.0.0-20201208171446-5f87f3452ae9 // indirect
 	golang.org/x/net v0.0.0-20201216054612-986b41b23924 // indirect
 	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a // indirect
