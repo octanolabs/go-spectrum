@@ -3,27 +3,23 @@
   "crawlers": {
     "enabled": true,
     "blocks": {
-        "enabled": true,
-        "interval": "500ms",
-        "routines": 5
+      "enabled": true,
+      "interval": "1000ms",
+      "routines": 5,
+      "tracing": {
+        "start_block": 0,
+        "batch_size": 1000
+      }
     },
     "database": {
-       "enabled": false,
-       "interval": "300s",
-       "tracing": {
-          "start_block": 0,
-          "batch_size": 1000
-       }
+      "enabled": false,
+      "interval": "300s"
     }
   },
   "api": {
     "enabled": false,
-    "port": "3000",
-    "nodemap": {
-      "enabled": false,
-      "mode": "server",
-      "mmdb": "GeoLite2-City.mmdb"
-    }
+    "host": "127.0.0.1",
+    "port": "3000"
   },
   "mongo": {
     "symbol": "UBQ",
@@ -33,7 +29,7 @@
     "password": "DB_PASSWORD"
   },
   "rpc": {
-    "type": "http",
-    "endpoint": "127.0.0.1:8588"
+    "type": "ws",
+    "endpoint": "ws://127.0.0.1:8589"
   }
 }

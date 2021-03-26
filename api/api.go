@@ -12,6 +12,7 @@ import (
 type Config struct {
 	Enabled bool `json:"enabled"`
 	//V3      bool   `json:"v4"`
+	Host string `json:"host"`
 	Port string `json:"port"`
 	//Nodemap struct {
 	//	Enabled bool   `json:"enabled"`
@@ -69,7 +70,7 @@ func (a *ApiServer) Start() {
 	}
 
 	go func() {
-		err := router.Run(":" + a.cfg.Port)
+		err := router.Run(a.cfg.Host + ":" + a.cfg.Port)
 
 		if err != nil {
 			log.Error("Couldn't run router", "err", err)
