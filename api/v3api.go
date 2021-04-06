@@ -2,13 +2,15 @@ package api
 
 import (
 	"bytes"
-	"github.com/octanolabs/go-spectrum/models"
 	"io"
 	"io/ioutil"
+	"math/big"
 	"net/http"
 	"regexp"
 	"strconv"
 	"unicode"
+
+	"github.com/octanolabs/go-spectrum/models"
 
 	"github.com/gin-gonic/gin"
 
@@ -221,7 +223,14 @@ func (r v3SupplyOnlyResponseWriter) Write(b []byte) (int, error) {
 		return 0, err
 	}
 
-	bb, err := json.Marshal(req.Body.Supply)
+	// convert to whole units.
+	x := new(big.Float)
+	x.SetString(req.Body.Supply)
+	y := new(big.Float)
+	y.SetInt64(1000000000000000000)
+	x.Quo(x, y)
+
+	bb, err := json.Marshal(x.String())
 	if err != nil {
 		log.Error("Error: couldn't marshal response body", "err", err)
 		return 0, err
