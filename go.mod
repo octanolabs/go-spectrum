@@ -17,7 +17,7 @@ require (
 	github.com/golang/snappy v0.0.2 // indirect
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
-	github.com/json-iterator/go v1.1.10
+	github.com/json-iterator/go v1.1.11
 	github.com/klauspost/compress v1.11.3 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
