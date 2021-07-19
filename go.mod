@@ -9,7 +9,7 @@ require (
 	github.com/btcsuite/btcd v0.21.0-beta // indirect
 	github.com/deckarep/golang-set v1.7.1 // indirect
 	github.com/edsrzf/mmap-go v1.0.0 // indirect
-	github.com/gdamore/tcell/v2 v2.1.0
+	github.com/gdamore/tcell/v2 v2.4.0
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-gonic/gin v1.6.3
 	github.com/go-playground/validator/v10 v10.4.1 // indirect
