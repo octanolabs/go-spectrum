@@ -8,7 +8,7 @@ require (
 	github.com/deckarep/golang-set v1.7.1 // indirect
 	github.com/gdamore/tcell/v2 v2.1.0
 	github.com/gin-contrib/cors v1.3.1
-	github.com/gin-gonic/gin v1.6.3
+	github.com/gin-gonic/gin v1.7.0
 	github.com/go-playground/validator/v10 v10.4.1 // indirect
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d
 	github.com/json-iterator/go v1.1.10
