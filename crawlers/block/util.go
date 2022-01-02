@@ -4,10 +4,10 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ubiq/go-ubiq/v3/consensus/ubqhash"
-	"github.com/ubiq/go-ubiq/v3/params"
+	"github.com/ubiq/go-ubiq/v6/consensus/ubqhash"
+	"github.com/ubiq/go-ubiq/v6/params"
 
-	"github.com/ubiq/go-ubiq/v3/log"
+	"github.com/ubiq/go-ubiq/v6/log"
 
 	"github.com/octanolabs/go-spectrum/models"
 )
@@ -123,7 +123,7 @@ func AccumulateRewards(block *models.Block, uncles []models.Uncle) (*big.Int, []
 	)
 
 	// block reward (miner)
-	initialReward, blockReward := ubqhash.CalcBaseBlockReward(config.Ubqhash, blockNo)
+	initialReward, blockReward := ubqhash.CalcBaseBlockReward(config.Ubqhash, blockNo, config.IsLondon(blockNo))
 
 	// Uncle reward step down fix. (activates along-side byzantium)
 	// pre-byzantium uncle reward calculation did not take into account monetary policy step-downs,

@@ -2,7 +2,7 @@
 # with Go source code. If you know what GOPATH is then you probably
 # don't need to bother with make.
 
-.PHONY: spectrum specapi all test clean
+.PHONY: spectrum all test clean
 
 GOBIN = $(shell pwd)/build/bin
 GO ?= latest
@@ -11,11 +11,6 @@ spectrum:
 	build/env.sh go run build/ci.go install ./cmd/spectrum
 	@echo "Done building."
 	@echo "Run \"$(GOBIN)/spectrum\" to launch Spectrum."
-
-specapi:
-	build/env.sh go run build/ci.go install ./cmd/specapi
-	@echo "Done building."
-	@echo "Run \"$(GOBIN)/specapi\" to launch Spectrum API."
 
 all:
 	build/env.sh go run build/ci.go install

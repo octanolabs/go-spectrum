@@ -1,7 +1,7 @@
 package logui
 
 import (
-	"github.com/ubiq/go-ubiq/v3/log"
+	"github.com/ubiq/go-ubiq/v6/log"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"

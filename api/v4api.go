@@ -6,8 +6,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/octanolabs/go-spectrum/models"
-	"github.com/ubiq/go-ubiq/v3/log"
-	"github.com/ubiq/go-ubiq/v3/rpc"
+	"github.com/ubiq/go-ubiq/v6/log"
+	"github.com/ubiq/go-ubiq/v6/rpc"
 )
 
 // use unexported interface so it trims some methods we don't want to serve

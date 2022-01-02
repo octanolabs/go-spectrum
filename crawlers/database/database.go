@@ -2,7 +2,7 @@ package database
 
 import (
 	"github.com/octanolabs/go-spectrum/storage"
-	"github.com/ubiq/go-ubiq/v3/log"
+	"github.com/ubiq/go-ubiq/v6/log"
 	"time"
 )
 
