@@ -35,7 +35,8 @@ type RawBlock struct {
 	AvgGasPrice   string `bson:"avgGasPrice" json:"avgGasPrice"`
 	TxFees        string `bson:"txFees" json:"txFees"`
 	//
-	ExtraData string `bson:"extraData" json:"extraData"`
+	ExtraData     string `bson:"extraData" json:"extraData"`
+	BaseFeePerGas string `bson:"baseFeePerGas" json:"baseFeePerGas,omitempty"`
 }
 
 func (b *RawBlock) Convert() Block {
@@ -65,7 +66,8 @@ func (b *RawBlock) Convert() Block {
 		Minted: "0",
 		Supply: "0",
 		//
-		ExtraData: b.ExtraData,
+		ExtraData:     b.ExtraData,
+		BaseFeePerGas: util.DecodeValueHex(b.BaseFeePerGas),
 	}
 }
 
@@ -104,5 +106,6 @@ type Block struct {
 	Minted string `bson:"minted" json:"minted"`
 	Supply string `bson:"supply" json:"supply"`
 	//
-	ExtraData string `bson:"extraData" json:"extraData"`
+	ExtraData     string `bson:"extraData" json:"extraData"`
+	BaseFeePerGas string `bson:"baseFeePerGas" json:"baseFeePerGas,omitempty"`
 }
