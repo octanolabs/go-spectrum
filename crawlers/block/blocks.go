@@ -3,10 +3,11 @@ package block
 import (
 	"errors"
 	"fmt"
-	"github.com/ubiq/go-ubiq/v6/log"
 	"math/big"
 	"strconv"
 	"time"
+
+	"github.com/ubiq/go-ubiq/v6/log"
 
 	"github.com/octanolabs/go-spectrum/models"
 
@@ -244,7 +245,7 @@ func (c *Crawler) syncBlock(block models.Block, task *syncronizer.Task) {
 	supply.Add(pSupply, minted)
 
 	if len(block.Transactions) > 0 {
-		avgGasPrice, txFees, tokenTransfers, contractsDeployed, contractCalls = c.processTransactions(block.Transactions, block.Timestamp)
+		avgGasPrice, txFees, tokenTransfers, contractsDeployed, contractCalls = c.processTransactions(block.Transactions, block.Timestamp, block.BaseFeePerGas)
 	}
 
 	minted.Add(blockReward, uncleRewards)
@@ -323,7 +324,7 @@ func (c *Crawler) processUncles(block *models.Block, uncles []models.Uncle) (*bi
 
 }
 
-func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uint64) (avgGasPrice, txFees *big.Int, tokenTransfers, contractsDeployed, contractCalls int) {
+func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uint64, baseFeePerGas string) (avgGasPrice, txFees *big.Int, tokenTransfers, contractsDeployed, contractCalls int) {
 
 	data := &data{
 		gasPrice:          big.NewInt(0),
@@ -358,7 +359,7 @@ func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uin
 				return
 			}
 
-			c.processTransaction(&tx, receipt, data)
+			c.processTransaction(&tx, receipt, data, baseFeePerGas)
 		})
 
 		//txSync.AddLink(func(t *syncronizer.Task) {
@@ -404,7 +405,7 @@ func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uin
 	return data.gasPrice.Div(data.gasPrice, big.NewInt(int64(len(txs)))), data.txFees, data.tokenTransfers, data.contractsDeployed, data.contractCalls
 }
 
-func (c *Crawler) processTransaction(tx *models.Transaction, receipt models.TxReceipt, data *data) {
+func (c *Crawler) processTransaction(tx *models.Transaction, receipt models.TxReceipt, data *data, baseFeePerGas string) {
 
 	txGasPrice := big.NewInt(0).SetUint64(tx.GasPrice)
 
@@ -418,6 +419,7 @@ func (c *Crawler) processTransaction(tx *models.Transaction, receipt models.TxRe
 	tx.ContractAddress = receipt.ContractAddress
 	tx.Logs = receipt.Logs
 	tx.Status = receipt.Status
+	tx.BaseFeePerGas = baseFeePerGas
 
 	err := c.backend.AddTransaction(tx)
 	if err != nil {

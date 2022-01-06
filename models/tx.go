@@ -6,20 +6,24 @@ import (
 )
 
 type RawTransaction struct {
-	BlockHash        string `json:"blockHash"`
-	BlockNumber      string `json:"blockNumber"`
-	From             string `json:"from"`
-	Gas              string `json:"gas"`
-	GasPrice         string `json:"gasPrice"`
-	Hash             string `json:"hash"`
-	Input            string `json:"input"`
-	Nonce            string `json:"nonce"`
-	To               string `json:"to"`
-	TransactionIndex string `json:"transactionIndex"`
-	Value            string `json:"value"`
-	V                string `json:"v"`
-	R                string `json:"r"`
-	S                string `json:"s"`
+	BlockHash            string `json:"blockHash"`
+	BlockNumber          string `json:"blockNumber"`
+	From                 string `json:"from"`
+	Gas                  string `json:"gas"`
+	GasPrice             string `json:"gasPrice"`
+	Hash                 string `json:"hash"`
+	Input                string `json:"input"`
+	Nonce                string `json:"nonce"`
+	To                   string `json:"to"`
+	TransactionIndex     string `json:"transactionIndex"`
+	Value                string `json:"value"`
+	V                    string `json:"v"`
+	R                    string `json:"r"`
+	S                    string `json:"s"`
+	MaxFeePerGas         string `bson:"maxFeePerGas" json:"maxFeePerGas,omitempty"`
+	MaxPriorityFeePerGas string `bson:"maxPriorityFeePerGas" json:"maxPriorityFeePerGas,omitempty"`
+	Type                 string `bson:"type" json:"type,omitempty"`
+	BaseFeePerGas        string `bson:"baseFeePerGas" json:"baseFeePerGas,omitempty"`
 }
 
 func (rt *RawTransaction) Convert() Transaction {
@@ -43,6 +47,10 @@ func (rt *RawTransaction) Convert() Transaction {
 		// ContractAddress :
 		// Logs            :
 		//
+		MaxFeePerGas:         util.DecodeHex(rt.MaxFeePerGas),
+		MaxPriorityFeePerGas: util.DecodeHex(rt.MaxPriorityFeePerGas),
+		Type:                 rt.Type,
+		BaseFeePerGas:        rt.BaseFeePerGas,
 	}
 }
 
@@ -65,6 +73,10 @@ type Transaction struct {
 	ContractAddress string  `bson:"contractAddress" json:"contractAddress"`
 	Logs            []TxLog `bson:"logs" json:"logs"`
 	//
+	MaxFeePerGas         uint64 `bson:"maxFeePerGas" json:"maxFeePerGas,omitempty"`
+	MaxPriorityFeePerGas uint64 `bson:"maxPriorityFeePerGas" json:"maxPriorityFeePerGas,omitempty"`
+	Type                 string `bson:"type" json:"type,omitempty"`
+	BaseFeePerGas        string `bson:"baseFeePerGas" json:"baseFeePerGas,omitempty"`
 }
 
 func (tx *Transaction) IsTokenTransfer() bool {

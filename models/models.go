@@ -43,7 +43,7 @@ type Enode struct {
 	Ip   net.IP   `json:"ip"`
 	Name string   `json:"name"`
 	TCP  int      `json:"tcp"`
-	UDP  int      `json:"tcp"`
+	UDP  int      `json:"udp"`
 }
 
 type NumberChart struct {
