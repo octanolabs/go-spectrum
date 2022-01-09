@@ -203,6 +203,7 @@ func (c *Crawler) syncBlock(block models.Block, task *syncronizer.Task) {
 		uncles                                           = make([]models.Uncle, 0)
 		avgGasPrice, txFees                              = new(big.Int), new(big.Int)
 		pSupply                                          = new(big.Int)
+		pTotalBurned                                     = new(big.Int)
 		pHash                                            string
 		tokenTransfers, contractsDeployed, contractCalls int
 	)
@@ -219,6 +220,7 @@ func (c *Crawler) syncBlock(block models.Block, task *syncronizer.Task) {
 
 	pSupply = prevBlock.Supply
 	pHash = prevBlock.Hash
+	pTotalBurned = prevBlock.TotalBurned
 
 	if pHash != block.ParentHash {
 		// If pHash != to currBlock's parentHash, pHash has reorg'd
@@ -244,6 +246,14 @@ func (c *Crawler) syncBlock(block models.Block, task *syncronizer.Task) {
 	var supply = new(big.Int)
 	supply.Add(pSupply, minted)
 
+	// add burned to totalBurned
+	var totalBurned = new(big.Int)
+	burnedUint64, _ := new(big.Int).SetString(block.Burned, 10)
+	totalBurned.Add(pTotalBurned, burnedUint64)
+
+	// remove burned from supply
+	supply.Sub(supply, burnedUint64)
+
 	if len(block.Transactions) > 0 {
 		avgGasPrice, txFees, tokenTransfers, contractsDeployed, contractCalls = c.processTransactions(block.Transactions, block.Timestamp, block.BaseFeePerGas)
 	}
@@ -257,7 +267,7 @@ func (c *Crawler) syncBlock(block models.Block, task *syncronizer.Task) {
 	block.UncleRewards = uncleRewards.String()
 	block.Minted = minted.String()
 	block.Supply = supply.String()
-
+	block.TotalBurned = totalBurned.String()
 	// write block to db
 	err = c.backend.AddBlock(&block)
 	if err != nil {
@@ -265,7 +275,7 @@ func (c *Crawler) syncBlock(block models.Block, task *syncronizer.Task) {
 	}
 
 	// add required block info to cache for next iteration
-	c.blockCache.Add(block.Number, blockCache{Supply: supply, Hash: block.Hash})
+	c.blockCache.Add(block.Number, blockCache{Supply: supply, Hash: block.Hash, TotalBurned: totalBurned})
 
 	c.log(block.Number, block.Txs, tokenTransfers, contractsDeployed, contractCalls, block.UncleNo, minted, supply)
 }
@@ -475,7 +485,8 @@ func (c *Crawler) getPreviousBlock(blockNumber uint64) (blockCache, error) {
 			return blockCache{}, errors.New("block " + strconv.FormatInt(int64(b), 10) + " not found in database")
 		}
 		sprev, _ := new(big.Int).SetString(latestBlock.Supply, 10)
-		return blockCache{sprev, latestBlock.Hash}, nil
+		bprev, _ := new(big.Int).SetString(latestBlock.TotalBurned, 10)
+		return blockCache{sprev, latestBlock.Hash, bprev}, nil
 	}
 }
 

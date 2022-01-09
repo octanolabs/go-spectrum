@@ -1,6 +1,8 @@
 package models
 
 import (
+	"math/big"
+
 	"github.com/octanolabs/go-spectrum/util"
 )
 
@@ -37,9 +39,16 @@ type RawBlock struct {
 	//
 	ExtraData     string `bson:"extraData" json:"extraData"`
 	BaseFeePerGas string `bson:"baseFeePerGas" json:"baseFeePerGas,omitempty"`
+	Burned        string `bson:"burned" json:"burned,omitempty"`
+	TotalBurned   string `bson:"totalBurned" json:"totalBurned,omitempty"`
 }
 
 func (b *RawBlock) Convert() Block {
+	gasUsed := util.DecodeHex(b.GasUsed)
+	baseFeePerGas := util.DecodeValueHex(b.BaseFeePerGas)
+	burned := new(big.Int).SetUint64(gasUsed)
+	bigBaseFeePerGas, _ := new(big.Int).SetString(baseFeePerGas, 10)
+	burned = burned.Mul(bigBaseFeePerGas, burned)
 	return Block{
 		Number:          util.DecodeHex(b.Number),
 		Timestamp:       util.DecodeHex(b.Timestamp),
@@ -52,7 +61,7 @@ func (b *RawBlock) Convert() Block {
 		Difficulty:      util.DecodeValueHex(b.Difficulty),
 		TotalDifficulty: util.DecodeValueHex(b.TotalDifficulty),
 		Size:            util.DecodeHex(b.Size),
-		GasUsed:         util.DecodeHex(b.GasUsed),
+		GasUsed:         gasUsed,
 		GasLimit:        util.DecodeHex(b.GasLimit),
 		Nonce:           b.Nonce,
 		Uncles:          b.Uncles,
@@ -67,7 +76,9 @@ func (b *RawBlock) Convert() Block {
 		Supply: "0",
 		//
 		ExtraData:     b.ExtraData,
-		BaseFeePerGas: util.DecodeValueHex(b.BaseFeePerGas),
+		BaseFeePerGas: baseFeePerGas,
+		Burned:        burned.String(),
+		TotalBurned:   "0",
 	}
 }
 
@@ -108,4 +119,6 @@ type Block struct {
 	//
 	ExtraData     string `bson:"extraData" json:"extraData"`
 	BaseFeePerGas string `bson:"baseFeePerGas" json:"baseFeePerGas,omitempty"`
+	Burned        string `bson:"burned" json:"burned,omitempty"`
+	TotalBurned   string `bson:"totalBurned" json:"totalBurned,omitempty"`
 }

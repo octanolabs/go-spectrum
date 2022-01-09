@@ -34,9 +34,11 @@ func (m *MongoDB) Init() {
 		AvgGasPrice:  "0",
 		TxFees:       "0",
 		//
-		ExtraData: "0x4a756d6275636b734545",
-		Minted:    "36108073197716300000000000",
-		Supply:    "36108073197716300000000000",
+		ExtraData:   "0x4a756d6275636b734545",
+		Minted:      "36108073197716300000000000",
+		Supply:      "36108073197716300000000000",
+		Burned:      "0",
+		TotalBurned: "0",
 	}
 
 	collection := m.C(models.BLOCKS)

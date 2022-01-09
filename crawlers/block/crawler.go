@@ -1,11 +1,12 @@
 package block
 
 import (
+	"math/big"
+
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/octanolabs/go-spectrum/rpc"
 	"github.com/octanolabs/go-spectrum/storage"
 	"github.com/ubiq/go-ubiq/v6/log"
-	"math/big"
 )
 
 const (
@@ -13,8 +14,9 @@ const (
 )
 
 type blockCache struct {
-	Supply *big.Int `json:"supply"`
-	Hash   string   `json:"hash"`
+	Supply      *big.Int `json:"supply"`
+	Hash        string   `json:"hash"`
+	TotalBurned *big.Int `json:"totalBurned"`
 }
 
 type Config struct {
