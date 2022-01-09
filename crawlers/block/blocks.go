@@ -485,7 +485,11 @@ func (c *Crawler) getPreviousBlock(blockNumber uint64) (blockCache, error) {
 			return blockCache{}, errors.New("block " + strconv.FormatInt(int64(b), 10) + " not found in database")
 		}
 		sprev, _ := new(big.Int).SetString(latestBlock.Supply, 10)
-		bprev, _ := new(big.Int).SetString(latestBlock.TotalBurned, 10)
+		bprev, exists := new(big.Int).SetString(latestBlock.TotalBurned, 10)
+		if !exists {
+			bprev, _ = new(big.Int).SetString("0", 10)
+		}
+
 		return blockCache{sprev, latestBlock.Hash, bprev}, nil
 	}
 }
