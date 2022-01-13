@@ -2,9 +2,12 @@ package storage
 
 import (
 	"context"
+	"fmt"
+	"math/big"
 	"os"
 
 	"github.com/octanolabs/go-spectrum/models"
+	"github.com/octanolabs/go-spectrum/rpc"
 	"github.com/octanolabs/go-spectrum/util"
 	"github.com/ubiq/go-ubiq/v6/log"
 	"go.mongodb.org/mongo-driver/bson"
@@ -12,7 +15,34 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func (m *MongoDB) Init() {
+func (m *MongoDB) Init(rpc *rpc.RPCClient) {
+
+	// get genesis state, update seeded accounts & calculate initial supply
+	collection := m.C(models.ACCOUNTS)
+
+	initialSupply := new(big.Int).SetUint64(0)
+
+	state, _ := rpc.GetState(0)
+	for k, v := range state.Accounts {
+		switch a := v.(type) {
+		case map[string]interface{}:
+			// add accounts balance to initial supply
+			balanceStr := fmt.Sprintf("%v", a["balance"])
+			balance, _ := new(big.Int).SetString(balanceStr, 10)
+			initialSupply = initialSupply.Add(initialSupply, balance)
+
+			account := models.Account{Address: k, Balance: balanceStr}
+			if _, err := collection.UpdateOne(context.Background(), bson.M{"address": account.Address}, bson.D{{"$set", &models.Account{
+				Address: account.Address,
+				Balance: account.Balance,
+			}}}, options.Update().SetUpsert(true)); err != nil {
+				log.Error("couldn't add account", "err", err, "address", k)
+			}
+		default:
+			// do nothing
+		}
+	}
+
 	genesis := &models.Block{
 		Number:          0,
 		Timestamp:       1485633600,
@@ -35,13 +65,13 @@ func (m *MongoDB) Init() {
 		TxFees:       "0",
 		//
 		ExtraData:   "0x4a756d6275636b734545",
-		Minted:      "36108073197716300000000000",
-		Supply:      "36108073197716300000000000",
+		Minted:      initialSupply.String(),
+		Supply:      initialSupply.String(), // "36108073197716300000000000"
 		Burned:      "0",
 		TotalBurned: "0",
 	}
 
-	collection := m.C(models.BLOCKS)
+	collection = m.C(models.BLOCKS)
 
 	if _, err := collection.InsertOne(context.Background(), genesis); err != nil {
 		log.Error("could not init supply block", "err", err)
@@ -53,7 +83,7 @@ func (m *MongoDB) Init() {
 	store := &models.Store{
 		Timestamp:           util.MakeTimestamp(),
 		Symbol:              m.symbol,
-		Supply:              "36108073197716300000000000",
+		Supply:              initialSupply.String(),
 		TotalTransactions:   0,
 		TotalTokenTransfers: 0,
 		TotalUncles:         0,

@@ -108,11 +108,6 @@ func main() {
 		mainLogger.Info("mongo: PONG")
 	}
 
-	if mongo.IsFirstRun() {
-		mongo.Init()
-		mainLogger.Warn("mongo: initialized sysStore, genesis, indexes")
-	}
-
 	rpcClient := rpc.NewRPCClient(&cfg.Rpc)
 
 	version, err := rpcClient.Ping()
@@ -128,6 +123,11 @@ func main() {
 	}
 
 	mainLogger.Info("connected to gubiq rpc server", "version", version)
+
+	if mongo.IsFirstRun() {
+		mongo.Init(rpcClient)
+		mainLogger.Warn("mongo: initialized sysStore, genesis, indexes")
+	}
 
 	if cfg.Crawlers.Enabled {
 		go startCrawlers(mongo, &cfg.Crawlers, appLogger, rpcClient)
