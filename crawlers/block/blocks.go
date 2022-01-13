@@ -287,9 +287,11 @@ func (c *Crawler) syncBlock(block models.Block, task *syncronizer.Task) {
 		}
 	} else {
 		// only update miner address
-		minerBalance, _ := c.rpc.GetBalance(block.Miner)
+		minerBalance, fail := c.rpc.GetBalance(block.Miner)
 		// minerBalance cant be 0 here so use it to err check
-		if minerBalance.Cmp(new(big.Int).SetUint64(0)) != 0 {
+		if minerBalance.Cmp(new(big.Int).SetUint64(0)) != 0 || fail != nil {
+			c.logger.Error("couldn't get miner balance", "err", err, "address", block.Miner)
+		} else {
 			account := models.Account{Address: block.Miner, Balance: minerBalance.String()}
 			err = c.backend.AddAccount(&account)
 			if err != nil {
