@@ -30,7 +30,7 @@ func (m *MongoDB) Init(rpc *rpc.RPCClient) {
 			balanceStr := fmt.Sprintf("%v", a["balance"])
 			balance, _ := new(big.Int).SetString(balanceStr, 10)
 			initialSupply = initialSupply.Add(initialSupply, balance)
-
+			// save account to db
 			account := models.Account{Address: k, Balance: balanceStr}
 			if _, err := collection.UpdateOne(context.Background(), bson.M{"address": account.Address}, bson.D{{"$set", &models.Account{
 				Address: account.Address,
@@ -43,33 +43,21 @@ func (m *MongoDB) Init(rpc *rpc.RPCClient) {
 		}
 	}
 
-	genesis := &models.Block{
-		Number:          0,
-		Timestamp:       1485633600,
-		Txs:             0,
-		Hash:            "0x406f1b7dd39fca54d8c702141851ed8b755463ab5b560e6f19b963b4047418af",
-		ParentHash:      "0x0000000000000000000000000000000000000000000000000000000000000000",
-		Sha3Uncles:      "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
-		Miner:           "0x3333333333333333333333333333333333333333",
-		Difficulty:      "80000000000",
-		TotalDifficulty: "80000000000",
-		Size:            524,
-		GasUsed:         0,
-		GasLimit:        134217728,
-		Nonce:           "0x0000000000000888",
-		UncleNo:         0,
-		// Empty
-		BlockReward:  "0",
-		UncleRewards: "0",
-		AvgGasPrice:  "0",
-		TxFees:       "0",
-		//
-		ExtraData:   "0x4a756d6275636b734545",
-		Minted:      initialSupply.String(),
-		Supply:      initialSupply.String(), // "36108073197716300000000000"
-		Burned:      "0",
-		TotalBurned: "0",
+	genesis, err := rpc.GetBlockByHeight(0)
+	if err != nil {
+		log.Error("could not retrieve genesis block", "err", err)
+		os.Exit(1)
 	}
+
+	genesis.BlockReward = "0"
+	genesis.UncleRewards = "0"
+	genesis.AvgGasPrice = "0"
+	genesis.TxFees = "0"
+	genesis.Minted = initialSupply.String()
+	genesis.Supply = initialSupply.String() // "36108073197716300000000000"
+	genesis.Burned = "0"
+	genesis.TotalBurned = "0"
+	genesis.Txs = 0
 
 	collection = m.C(models.BLOCKS)
 
