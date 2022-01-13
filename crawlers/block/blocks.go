@@ -268,6 +268,25 @@ func (c *Crawler) syncBlock(block models.Block, task *syncronizer.Task) {
 	block.Minted = minted.String()
 	block.Supply = supply.String()
 	block.TotalBurned = totalBurned.String()
+
+	// if block contains transactions update accounts
+	if len(block.Transactions) > 0 {
+		// get state and update accounts
+		state, _ := c.rpc.GetState(block.Number)
+		for k, v := range state.Accounts {
+			switch a := v.(type) {
+			case map[string]interface{}:
+				account := models.Account{Address: k, Balance: fmt.Sprintf("%v", a["balance"])}
+				err = c.backend.AddAccount(&account)
+				if err != nil {
+					c.logger.Error("couldn't add account", "err", err, "address", k)
+				}
+			default:
+				// do nothing
+			}
+		}
+	}
+
 	// write block to db
 	err = c.backend.AddBlock(&block)
 	if err != nil {

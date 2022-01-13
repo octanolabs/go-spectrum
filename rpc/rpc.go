@@ -185,3 +185,15 @@ func (r *RPCClient) TraceTransaction(hash string) (models.InternalTx, error) {
 
 	return trace.Convert(), nil
 }
+
+func (r *RPCClient) GetState(blockNumber uint64) (models.RawState, error) {
+	var state models.RawState
+
+	err := r.client.Call(&state, "debug_dumpBlock", hexutil.EncodeUint64(blockNumber))
+
+	if err != nil {
+		return models.RawState{}, err
+	}
+
+	return state, nil
+}

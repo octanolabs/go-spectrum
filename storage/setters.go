@@ -2,10 +2,11 @@ package storage
 
 import (
 	"context"
-	"github.com/octanolabs/go-spectrum/util"
-	"go.mongodb.org/mongo-driver/bson"
 	"math/big"
 	"sort"
+
+	"github.com/octanolabs/go-spectrum/util"
+	"go.mongodb.org/mongo-driver/bson"
 
 	"github.com/octanolabs/go-spectrum/models"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -71,6 +72,19 @@ func (m *MongoDB) AddBlock(b *models.Block) error {
 	if _, err := collection.InsertOne(context.Background(), b, options.InsertOne()); err != nil {
 		return err
 	}
+	return nil
+}
+
+func (m *MongoDB) AddAccount(a *models.Account) error {
+	collection := m.C(models.ACCOUNTS)
+
+	if _, err := collection.UpdateOne(context.Background(), bson.M{"address": a.Address}, bson.D{{"$set", &models.Account{
+		Address: a.Address,
+		Balance: a.Balance,
+	}}}, options.Update().SetUpsert(true)); err != nil {
+		return err
+	}
+
 	return nil
 }
 

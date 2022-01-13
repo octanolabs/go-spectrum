@@ -23,7 +23,6 @@ func startCrawlers(mongo *storage.MongoDB, cfg *crawlers.Config, logger log.Logg
 		dbCrawler := database.NewDbCrawler(mongo, &cfg.DatabaseCrawler, logger.New("crawler", "database"))
 		logger.Info("Starting database crawler")
 		crawlerMap["database"] = dbCrawler
-
 	}
 
 	crawlers.RunCrawlers(crawlerMap, cfg, logger)

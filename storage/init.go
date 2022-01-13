@@ -80,6 +80,10 @@ func (m *MongoDB) initIndexes() {
 		log.Error("could not init indexes for blocks", "err", err)
 	}
 
+	iv = m.C(models.ACCOUNTS).Indexes()
+	accountAddressIdxModel := mongo.IndexModel{Keys: bson.M{"address": 1}, Options: options.Index().SetName("accountsAddressIndex").SetUnique(true)}
+	_, err = iv.CreateOne(context.Background(), accountAddressIdxModel, options.CreateIndexes())
+
 	iv = m.C(models.FORKEDBLOCKS).Indexes()
 
 	rIdxModel := mongo.IndexModel{Keys: bson.M{"hash": 1}, Options: options.Index().SetName("reorgsIndex").SetUnique(true)}

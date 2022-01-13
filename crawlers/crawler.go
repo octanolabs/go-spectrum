@@ -1,11 +1,12 @@
 package crawlers
 
 import (
+	"os"
+	"time"
+
 	"github.com/octanolabs/go-spectrum/crawlers/block"
 	"github.com/octanolabs/go-spectrum/crawlers/database"
 	"github.com/ubiq/go-ubiq/v6/log"
-	"os"
-	"time"
 )
 
 type Crawler interface {

@@ -19,6 +19,7 @@ const (
 	CHARTS        = "charts"
 	STORE         = "sysstores"
 	ENODES        = "enodes"
+	ACCOUNTS      = "accounts"
 )
 
 type Store struct {
