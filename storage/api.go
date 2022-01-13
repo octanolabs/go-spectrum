@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+
 	"github.com/octanolabs/go-spectrum/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -335,6 +336,32 @@ func (m *MongoDB) LatestTokenTransfersByAccount(account string) (map[string]inte
 	}
 
 	result["transfers"] = transfers
+	result["total"] = count
+
+	return result, err
+}
+
+func (m *MongoDB) Accounts(limit int64) (map[string]interface{}, error) {
+	var (
+		accounts = make([]models.Account, 0)
+		result   = map[string]interface{}{}
+	)
+
+	c, err := m.C(models.ACCOUNTS).Find(context.Background(), bson.M{}, options.Find().SetSort(bson.D{{"balance", -1}}).SetLimit(limit))
+
+	if err != nil {
+		return result, err
+	}
+
+	err = c.All(context.Background(), &accounts)
+
+	count, err := m.TotalAccountCount()
+
+	if err != nil {
+		return result, err
+	}
+
+	result["accounts"] = accounts
 	result["total"] = count
 
 	return result, err

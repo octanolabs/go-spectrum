@@ -299,3 +299,10 @@ func (m *MongoDB) ListCharts() ([]string, error) {
 
 	return result, err
 }
+
+// Accounts
+
+func (m *MongoDB) TotalAccountCount() (int64, error) {
+	count, err := m.C(models.ACCOUNTS).CountDocuments(context.Background(), bson.M{}, options.Count())
+	return count, err
+}

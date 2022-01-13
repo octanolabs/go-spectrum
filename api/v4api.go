@@ -64,6 +64,9 @@ type v4api interface {
 	LatestContractCalls(limit int64) (map[string]interface{}, error)
 	LatestContractsDeployed(limit int64) (map[string]interface{}, error)
 
+	//accounts
+	Accounts(limit int64) (map[string]interface{}, error)
+
 	//misc
 	Status() (models.Store, error)
 }
