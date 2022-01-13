@@ -285,6 +285,17 @@ func (c *Crawler) syncBlock(block models.Block, task *syncronizer.Task) {
 				// do nothing
 			}
 		}
+	} else {
+		// only update miner address
+		minerBalance, _ := c.rpc.GetBalance(block.Miner)
+		// minerBalance cant be 0 here so use it to err check
+		if minerBalance.Cmp(new(big.Int).SetUint64(0)) != 0 {
+			account := models.Account{Address: block.Miner, Balance: minerBalance.String()}
+			err = c.backend.AddAccount(&account)
+			if err != nil {
+				c.logger.Error("couldn't add account", "err", err, "address", account.Address)
+			}
+		}
 	}
 
 	// write block to db

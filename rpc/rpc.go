@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"errors"
+	"math/big"
 	"os"
 	"time"
 
@@ -196,4 +197,18 @@ func (r *RPCClient) GetState(blockNumber uint64) (models.RawState, error) {
 	}
 
 	return state, nil
+}
+
+func (r *RPCClient) GetBalance(address string) (big.Int, error) {
+	var balance string
+
+	err := r.client.Call(&balance, "eth_getBalance", address)
+
+	if err != nil {
+		return *new(big.Int).SetUint64(0), err
+	}
+
+	decoded, _ := hexutil.DecodeUint64(balance)
+
+	return *new(big.Int).SetUint64(decoded), nil
 }
