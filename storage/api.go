@@ -347,7 +347,11 @@ func (m *MongoDB) Accounts(limit int64) (map[string]interface{}, error) {
 		result   = map[string]interface{}{}
 	)
 
-	c, err := m.C(models.ACCOUNTS).Find(context.Background(), bson.M{}, options.Find().SetSort(bson.D{{"balance", -1}}).SetLimit(limit))
+	var collation options.Collation
+	collation.Locale = "en_US"
+	collation.NumericOrdering = true
+
+	c, err := m.C(models.ACCOUNTS).Find(context.Background(), bson.M{}, options.Find().SetCollation(&collation).SetSort(bson.D{{"balance", -1}}).SetLimit(limit))
 
 	if err != nil {
 		return result, err
