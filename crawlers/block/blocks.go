@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/ubiq/go-ubiq/v6/log"
 
 	"github.com/octanolabs/go-spectrum/models"
@@ -208,6 +209,8 @@ func (c *Crawler) syncBlock(block models.Block, task *syncronizer.Task) {
 		tokenTransfers, contractsDeployed, contractCalls int
 	)
 
+	accountsCache, _ := lru.New(1024)
+
 	// get parent block info
 	prevBlock, err := c.getPreviousBlock(block.Number)
 
@@ -239,8 +242,10 @@ func (c *Crawler) syncBlock(block models.Block, task *syncronizer.Task) {
 			c.logger.Error("couldn't get uncles", "err", err)
 		}
 	}
+	// add miner to accounts Cache
+	accountsCache.Add(block.Miner, true)
 
-	blockReward, uncleRewards, minted := c.processUncles(&block, uncles)
+	blockReward, uncleRewards, minted := c.processUncles(&block, uncles, accountsCache)
 
 	// add minted to supply
 	var supply = new(big.Int)
@@ -255,7 +260,7 @@ func (c *Crawler) syncBlock(block models.Block, task *syncronizer.Task) {
 	supply.Sub(supply, burnedUint64)
 
 	if len(block.Transactions) > 0 {
-		avgGasPrice, txFees, tokenTransfers, contractsDeployed, contractCalls = c.processTransactions(block.Transactions, block.Timestamp, block.BaseFeePerGas)
+		avgGasPrice, txFees, tokenTransfers, contractsDeployed, contractCalls = c.processTransactions(block.Transactions, block.Timestamp, block.BaseFeePerGas, accountsCache)
 	}
 
 	minted.Add(blockReward, uncleRewards)
@@ -270,35 +275,37 @@ func (c *Crawler) syncBlock(block models.Block, task *syncronizer.Task) {
 	block.TotalBurned = totalBurned.String()
 
 	// if block contains transactions update accounts
-	if len(block.Transactions) > 0 {
-		// get state and update accounts
-		state, _ := c.rpc.GetState(block.Number)
-		for k, v := range state.Accounts {
-			switch a := v.(type) {
-			case map[string]interface{}:
-				account := models.Account{Address: k, Balance: fmt.Sprintf("%v", a["balance"])}
-				err = c.backend.AddAccount(&account)
-				if err != nil {
-					c.logger.Error("couldn't add account", "err", err, "address", k)
-				}
-			default:
-				// do nothing
-			}
-		}
-	} else {
-		// only update miner address
-		minerBalance, fail := c.rpc.GetBalance(block.Miner, block.Number)
+	accounts := accountsCache.Keys()
+	// fmt.Printf("%v", accounts)
+	for x := 0; x < len(accounts); x++ {
+		address := fmt.Sprintf("%v", accounts[x])
+		balance, fail := c.rpc.GetBalance(address, block.Number)
 		if fail != nil {
-			c.logger.Error("couldn't get miner balance", "err", err, "address", block.Miner, "balance", minerBalance.String())
+			c.logger.Error("couldn't get balance", "err", fail, "address", address, "balance", balance.String())
 		} else {
-			// c.logger.Info("updated miner balance", "err", err, "address", block.Miner, "balance", minerBalance.String())
-			account := models.Account{Address: block.Miner, Balance: minerBalance.String()}
+			account := models.Account{Address: address, Balance: balance.String(), Block: block.Number}
 			err = c.backend.AddAccount(&account)
 			if err != nil {
 				c.logger.Error("couldn't add account", "err", err, "address", account.Address)
 			}
 		}
 	}
+
+	accountsCache.Purge()
+	// get state and update accounts
+	// state, _ := c.rpc.GetState(block.Number)
+	// for k, v := range state.Accounts {
+	// 	switch a := v.(type) {
+	// 	case map[string]interface{}:
+	// 		account := models.Account{Address: k, Balance: fmt.Sprintf("%v", a["balance"])}
+	// 		err = c.backend.AddAccount(&account)
+	// 		if err != nil {
+	// 			c.logger.Error("couldn't add account", "err", err, "address", k)
+	// 		}
+	// 	default:
+	// 		// do nothing
+	// 	}
+	// }
 
 	// write block to db
 	err = c.backend.AddBlock(&block)
@@ -339,7 +346,7 @@ type data struct {
 	tokenTransfers, contractCalls, contractsDeployed int
 }
 
-func (c *Crawler) processUncles(block *models.Block, uncles []models.Uncle) (*big.Int, *big.Int, *big.Int) {
+func (c *Crawler) processUncles(block *models.Block, uncles []models.Uncle, accounts *lru.Cache) (*big.Int, *big.Int, *big.Int) {
 
 	var (
 		uRewards = new(big.Int)
@@ -348,7 +355,7 @@ func (c *Crawler) processUncles(block *models.Block, uncles []models.Uncle) (*bi
 	blockReward, uncleRewards, minted := AccumulateRewards(block, uncles)
 
 	for idx, uncle := range uncles {
-
+		accounts.ContainsOrAdd(uncle.Miner, true)
 		uncle.BlockNumber = block.Number
 		uncle.Position = uint64(idx)
 		uncle.Reward = uncleRewards[idx].String()
@@ -366,7 +373,7 @@ func (c *Crawler) processUncles(block *models.Block, uncles []models.Uncle) (*bi
 
 }
 
-func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uint64, baseFeePerGas string) (avgGasPrice, txFees *big.Int, tokenTransfers, contractsDeployed, contractCalls int) {
+func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uint64, baseFeePerGas string, accounts *lru.Cache) (avgGasPrice, txFees *big.Int, tokenTransfers, contractsDeployed, contractCalls int) {
 
 	data := &data{
 		gasPrice:          big.NewInt(0),
@@ -401,7 +408,7 @@ func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uin
 				return
 			}
 
-			c.processTransaction(&tx, receipt, data, baseFeePerGas)
+			c.processTransaction(&tx, receipt, data, baseFeePerGas, accounts)
 		})
 
 		//txSync.AddLink(func(t *syncronizer.Task) {
@@ -447,7 +454,7 @@ func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uin
 	return data.gasPrice.Div(data.gasPrice, big.NewInt(int64(len(txs)))), data.txFees, data.tokenTransfers, data.contractsDeployed, data.contractCalls
 }
 
-func (c *Crawler) processTransaction(tx *models.Transaction, receipt models.TxReceipt, data *data, baseFeePerGas string) {
+func (c *Crawler) processTransaction(tx *models.Transaction, receipt models.TxReceipt, data *data, baseFeePerGas string, accounts *lru.Cache) {
 
 	txGasPrice := big.NewInt(0).SetUint64(tx.GasPrice)
 
@@ -486,6 +493,10 @@ func (c *Crawler) processTransaction(tx *models.Transaction, receipt models.TxRe
 		}
 	}
 
+	accounts.ContainsOrAdd(tx.From, true)
+	if tx.To != "" && tx.To != "0x" && tx.To != "0x0000000000000000000000000000000000000000" {
+		accounts.ContainsOrAdd(tx.To, true)
+	}
 }
 
 func (c *Crawler) processTokenTransfer(transfer *models.TokenTransfer, tx *models.Transaction) {

@@ -8,4 +8,5 @@ type RawState struct {
 type Account struct {
 	Address string `bson:"address" json:"address"`
 	Balance string `bson:"balance" json:"balance"`
+	Block   uint64 `bson:"block" json:"block"`
 }

@@ -81,6 +81,7 @@ func (m *MongoDB) AddAccount(a *models.Account) error {
 	if _, err := collection.UpdateOne(context.Background(), bson.M{"address": a.Address}, bson.D{{"$set", &models.Account{
 		Address: a.Address,
 		Balance: a.Balance,
+		Block:   a.Block,
 	}}}, options.Update().SetUpsert(true)); err != nil {
 		return err
 	}

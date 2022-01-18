@@ -35,6 +35,7 @@ func (m *MongoDB) Init(rpc *rpc.RPCClient) {
 			if _, err := collection.UpdateOne(context.Background(), bson.M{"address": account.Address}, bson.D{{"$set", &models.Account{
 				Address: account.Address,
 				Balance: account.Balance,
+				Block:   0,
 			}}}, options.Update().SetUpsert(true)); err != nil {
 				log.Error("couldn't add account", "err", err, "address", k)
 			}
