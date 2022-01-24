@@ -9,6 +9,7 @@ import (
 	"github.com/octanolabs/go-spectrum/models"
 	"github.com/octanolabs/go-spectrum/rpc"
 	"github.com/octanolabs/go-spectrum/util"
+	"github.com/ubiq/go-ubiq/v6/common"
 	"github.com/ubiq/go-ubiq/v6/log"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -17,37 +18,69 @@ import (
 
 func (m *MongoDB) Init(rpc *rpc.RPCClient) {
 
-	// get genesis state, update seeded accounts & calculate initial supply
-	collection := m.C(models.ACCOUNTS)
+	collection := m.C(models.TXNS)
 
+	txnIndex := new(big.Int).SetUint64(0)
 	initialSupply := new(big.Int).SetUint64(0)
-
-	state, _ := rpc.GetState(0)
-	for k, v := range state.Accounts {
-		switch a := v.(type) {
-		case map[string]interface{}:
-			// add accounts balance to initial supply
-			balanceStr := fmt.Sprintf("%v", a["balance"])
-			balance, _ := new(big.Int).SetString(balanceStr, 10)
-			initialSupply = initialSupply.Add(initialSupply, balance)
-			// save account to db
-			account := models.Account{Address: k, Balance: balanceStr}
-			if _, err := collection.UpdateOne(context.Background(), bson.M{"address": account.Address}, bson.D{{"$set", &models.Account{
-				Address: account.Address,
-				Balance: account.Balance,
-				Block:   0,
-			}}}, options.Update().SetUpsert(true)); err != nil {
-				log.Error("couldn't add account", "err", err, "address", k)
-			}
-		default:
-			// do nothing
-		}
-	}
 
 	genesis, err := rpc.GetBlockByHeight(0)
 	if err != nil {
 		log.Error("could not retrieve genesis block", "err", err)
 		os.Exit(1)
+	}
+
+	// get genesis state
+	state, _ := rpc.GetState(0)
+	for k, v := range state.Accounts {
+		switch a := v.(type) {
+		case map[string]interface{}:
+			collection = m.C(models.TXNS)
+			// add accounts balance to initial supply
+			balanceStr := fmt.Sprintf("%v", a["balance"])
+			balance, _ := new(big.Int).SetString(balanceStr, 10)
+			initialSupply = initialSupply.Add(initialSupply, balance)
+
+			// produce a "hash"
+			suffix := new(big.Int).Set(txnIndex)
+			suffix.Add(suffix, new(big.Int).SetUint64(1)) // index + 1
+
+			bytes := common.LeftPadBytes(suffix.Bytes(), 64)
+			hash := common.BytesToHash(bytes)
+
+			// create txn and save to db
+			txn := models.Transaction{
+				BlockHash:        genesis.Hash,
+				BlockNumber:      0,
+				Hash:             hash.String(),
+				From:             "0x",
+				To:               k,
+				Gas:              0,
+				GasPrice:         0,
+				Nonce:            "0x" + txnIndex.Text(16),
+				TransactionIndex: txnIndex.Uint64(),
+				Type:             "genesis",
+				Logs:             []models.TxLog{},
+				Value:            balanceStr,
+				Timestamp:        genesis.Timestamp,
+				Input:            "0x",
+				BaseFeePerGas:    "0",
+			}
+			// save txn to db
+			if _, err := collection.UpdateOne(context.Background(), bson.M{"hash": txn.Hash}, bson.D{{"$set", &txn}}, options.Update().SetUpsert(true)); err != nil {
+				log.Error("couldn't add txn", "err", err, "txid", hash)
+			}
+
+			// save account to db
+			collection = m.C(models.ACCOUNTS)
+			account := models.Account{Address: k, Balance: balanceStr, Block: 0}
+			if _, err := collection.UpdateOne(context.Background(), bson.M{"address": account.Address}, bson.D{{"$set", &account}}, options.Update().SetUpsert(true)); err != nil {
+				log.Error("couldn't add account", "err", err, "address", k)
+			}
+			// increment txnIndex
+			txnIndex.Add(txnIndex, new(big.Int).SetUint64(1))
+		default:
+			// do nothing
+		}
 	}
 
 	genesis.BlockReward = "0"
@@ -58,7 +91,7 @@ func (m *MongoDB) Init(rpc *rpc.RPCClient) {
 	genesis.Supply = initialSupply.String() // "36108073197716300000000000"
 	genesis.Burned = "0"
 	genesis.TotalBurned = "0"
-	genesis.Txs = 0
+	genesis.Txs = len(state.Accounts)
 
 	collection = m.C(models.BLOCKS)
 
