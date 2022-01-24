@@ -341,7 +341,7 @@ func (m *MongoDB) LatestTokenTransfersByAccount(account string) (map[string]inte
 	return result, err
 }
 
-func (m *MongoDB) Accounts(limit int64) (map[string]interface{}, error) {
+func (m *MongoDB) AccountsByBalance(limit int64) (map[string]interface{}, error) {
 	var (
 		accounts = make([]models.Account, 0)
 		result   = map[string]interface{}{}
@@ -352,6 +352,32 @@ func (m *MongoDB) Accounts(limit int64) (map[string]interface{}, error) {
 	collation.NumericOrdering = true
 
 	c, err := m.C(models.ACCOUNTS).Find(context.Background(), bson.M{}, options.Find().SetCollation(&collation).SetSort(bson.D{{"balance", -1}}).SetLimit(limit))
+
+	if err != nil {
+		return result, err
+	}
+
+	err = c.All(context.Background(), &accounts)
+
+	count, err := m.TotalAccountCount()
+
+	if err != nil {
+		return result, err
+	}
+
+	result["accounts"] = accounts
+	result["total"] = count
+
+	return result, err
+}
+
+func (m *MongoDB) AccountsByLastSeen(limit int64) (map[string]interface{}, error) {
+	var (
+		accounts = make([]models.Account, 0)
+		result   = map[string]interface{}{}
+	)
+
+	c, err := m.C(models.ACCOUNTS).Find(context.Background(), bson.M{}, options.Find().SetSort(bson.D{{"block", -1}}).SetLimit(limit))
 
 	if err != nil {
 		return result, err
