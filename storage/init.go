@@ -31,6 +31,7 @@ func (m *MongoDB) Init(rpc *rpc.RPCClient) {
 
 	// get genesis state
 	state, _ := rpc.GetState(0)
+	transactions := make([]models.Transaction, len(state.Accounts))
 	for k, v := range state.Accounts {
 		switch a := v.(type) {
 		case map[string]interface{}:
@@ -70,6 +71,9 @@ func (m *MongoDB) Init(rpc *rpc.RPCClient) {
 				log.Error("couldn't add txn", "err", err, "txid", hash)
 			}
 
+			// add txn to transactions array
+			transactions[txnIndex.Uint64()] = txn
+
 			// save account to db
 			collection = m.C(models.ACCOUNTS)
 			account := models.Account{Address: k, Balance: balanceStr, Block: 0}
@@ -91,7 +95,7 @@ func (m *MongoDB) Init(rpc *rpc.RPCClient) {
 	genesis.Supply = initialSupply.String() // "36108073197716300000000000"
 	genesis.Burned = "0"
 	genesis.TotalBurned = "0"
-	genesis.Txs = len(state.Accounts)
+	genesis.Transactions = transactions
 
 	collection = m.C(models.BLOCKS)
 

@@ -259,12 +259,14 @@ func (c *Crawler) syncBlock(block models.Block, task *syncronizer.Task) {
 	// remove burned from supply
 	supply.Sub(supply, burnedUint64)
 
+	transactions := make([]models.Transaction, len(block.Transactions))
 	if len(block.Transactions) > 0 {
-		avgGasPrice, txFees, tokenTransfers, contractsDeployed, contractCalls = c.processTransactions(block.Transactions, block.Timestamp, block.BaseFeePerGas, accountsCache)
+		transactions, avgGasPrice, txFees, tokenTransfers, contractsDeployed, contractCalls = c.processTransactions(block.RawTransactions, block.Timestamp, block.BaseFeePerGas, accountsCache)
 	}
 
 	minted.Add(blockReward, uncleRewards)
 
+	block.Transactions = transactions
 	block.TokenTransfers = tokenTransfers
 	block.AvgGasPrice = avgGasPrice.String()
 	block.TxFees = txFees.String()
@@ -316,7 +318,7 @@ func (c *Crawler) syncBlock(block models.Block, task *syncronizer.Task) {
 	// add required block info to cache for next iteration
 	c.blockCache.Add(block.Number, blockCache{Supply: supply, Hash: block.Hash, TotalBurned: totalBurned})
 
-	c.log(block.Number, block.Txs, tokenTransfers, contractsDeployed, contractCalls, block.UncleNo, minted, supply)
+	c.log(block.Number, len(block.Transactions), tokenTransfers, contractsDeployed, contractCalls, block.UncleNo, minted, supply)
 }
 
 func (c *Crawler) syncForkedBlock(b models.Block) {
@@ -373,7 +375,7 @@ func (c *Crawler) processUncles(block *models.Block, uncles []models.Uncle, acco
 
 }
 
-func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uint64, baseFeePerGas string, accounts *lru.Cache) (avgGasPrice, txFees *big.Int, tokenTransfers, contractsDeployed, contractCalls int) {
+func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uint64, baseFeePerGas string, accounts *lru.Cache) (transactions []models.Transaction, avgGasPrice, txFees *big.Int, tokenTransfers, contractsDeployed, contractCalls int) {
 
 	data := &data{
 		gasPrice:          big.NewInt(0),
@@ -382,6 +384,8 @@ func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uin
 		contractCalls:     0,
 		contractsDeployed: 0,
 	}
+
+	transactions = make([]models.Transaction, len(txs))
 
 	// maxRoutines equal to 2 times the number of txs to account for possible token transfers
 	txSync := syncronizer.NewSync(len(txs) * 2)
@@ -409,24 +413,8 @@ func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uin
 			}
 
 			c.processTransaction(&tx, receipt, data, baseFeePerGas, accounts)
+			transactions[tx.TransactionIndex] = tx
 		})
-
-		//txSync.AddLink(func(t *syncronizer.Task) {
-		//
-		//	txTrace, err := c.rpc.TraceTransaction(tx.Hash)
-		//	if err != nil {
-		//		c.logger.Error("couldn't get tx receipt", "err", err)
-		//	}
-		//	closed := t.Link()
-		//	if closed {
-		//		return
-		//	}
-		//
-		//	err = c.backend.AddTxTrace(txTrace)
-		//	if err != nil {
-		//		c.logger.Error("couldn't store tx trace", "err", err)
-		//	}
-		//})
 
 		// If tx is a token transfer we add another link right after
 
@@ -446,12 +434,11 @@ func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uin
 				c.processTokenTransfer(transfer, &tx)
 			})
 		}
-
 	}
 
 	txSync.Finish()
 
-	return data.gasPrice.Div(data.gasPrice, big.NewInt(int64(len(txs)))), data.txFees, data.tokenTransfers, data.contractsDeployed, data.contractCalls
+	return transactions, data.gasPrice.Div(data.gasPrice, big.NewInt(int64(len(txs)))), data.txFees, data.tokenTransfers, data.contractsDeployed, data.contractCalls
 }
 
 func (c *Crawler) processTransaction(tx *models.Transaction, receipt models.TxReceipt, data *data, baseFeePerGas string, accounts *lru.Cache) {
