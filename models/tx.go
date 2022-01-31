@@ -77,6 +77,8 @@ type Transaction struct {
 	MaxPriorityFeePerGas uint64 `bson:"maxPriorityFeePerGas" json:"maxPriorityFeePerGas,omitempty"`
 	Type                 string `bson:"type" json:"type,omitempty"`
 	BaseFeePerGas        string `bson:"baseFeePerGas" json:"baseFeePerGas,omitempty"`
+	//
+	Trace InternalTx `bson:"trace,omitempty" json:"trace,omitempty"`
 }
 
 func (tx *Transaction) IsTokenTransfer() bool {

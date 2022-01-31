@@ -8,7 +8,6 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/ubiq/go-ubiq/v6/log"
 
 	"github.com/octanolabs/go-spectrum/models"
 
@@ -23,107 +22,13 @@ func (c *Crawler) RunLoop() {
 
 	close(c.logChan)
 
-	var startBlock = c.cfg.Tracing.StartBlock
-
-	t, err := c.backend.LatestTxTrace()
-	if err != nil {
-		c.logger.Debug("error: couldn't get latest tx trace", " err", err)
-	} else {
-		startBlock = uint64(t.OriginBlockNo + 1)
-	}
-
-	//c.logger.Info("starting tx tracing", "batchSize", c.cfg.Tracing.BatchSize, "traceFrom", startBlock)
-
-	c.crawlTxTraces(startBlock)
-
-	err = c.backend.UpdateStore()
+	err := c.backend.UpdateStore()
 
 	if err != nil {
 		c.logger.Error("Error updating store", "err", err)
 	}
 
 	c.state.syncing = false
-}
-
-func (c *Crawler) crawlTxTraces(startBlock uint64) {
-
-	if s, err := c.backend.Status(); err == nil && s.LatestBlock.Number < c.cfg.Tracing.StartBlock {
-		c.logger.Error("skipping cycle, didn't sync past startBlock yet")
-	} else {
-
-		latestBlock, err := c.backend.LatestBlock()
-		if err != nil {
-			c.logger.Error("couldn't get latest block", "err", err)
-			return
-		}
-
-		sync := syncronizer.NewSync(25)
-
-		for b := startBlock; b < latestBlock.Number; b += uint64(c.cfg.Tracing.BatchSize) + 1 {
-			t := time.Now()
-
-			c.logger.Debug("syncing tx traces tx traces", "t", t.String(), "b", b)
-
-			hashes, blockNos, err := c.backend.LatestTxHashes(c.cfg.Tracing.BatchSize, b)
-			if err != nil {
-				c.logger.Error("error getting trace data", "err", err)
-			}
-
-			c.logger.Debug("latest", "hashes", hashes, "bns", blockNos)
-
-			if len(hashes) == 0 {
-				c.logger.Warn("no traces to sync")
-				break
-			}
-
-			c.syncTxTraces(sync, hashes, blockNos)
-			c.logger.Info("synced tx traces", "head", blockNos[len(blockNos)-1], "count", len(hashes), "took", time.Since(t).String())
-
-		}
-
-		if aborted := sync.Finish(); aborted {
-			log.Error("aborted sync")
-		}
-	}
-}
-
-func (c *Crawler) syncTxTraces(sync *syncronizer.Synchronizer, hashes []string, blockNos []int64) {
-
-	for idx, txh := range hashes {
-
-		hash := txh
-		bn := blockNos[idx]
-
-		//TODO: multiple errors causing simultaneous aborts make synchronizer hang
-		// figure out why (to reproduce remove timout from trace rpc call)
-		sync.AddLink(func(task *syncronizer.Task) {
-
-			itx, err := c.rpc.TraceTransaction(hash)
-			if err != nil {
-				c.logger.Error("couldn't get internal tx", "hash", hash, "bn", bn, "err", err)
-				task.AbortSync()
-				return
-			}
-
-			if closed := task.Link(); closed {
-				return
-			}
-
-			trace := &models.TxTrace{
-				OriginTxHash:  hash,
-				OriginBlockNo: bn,
-				Trace:         itx,
-			}
-
-			err = c.backend.AddTxTrace(trace)
-			if err != nil {
-				log.Error("couldn't add trace to db", "err", err)
-				task.AbortSync()
-				return
-			}
-		})
-	}
-	return
 }
 
 func (c *Crawler) crawBlocks() {
@@ -264,6 +169,7 @@ func (c *Crawler) syncBlock(block models.Block, task *syncronizer.Task) {
 		transactions, avgGasPrice, txFees, tokenTransfers, contractsDeployed, contractCalls = c.processTransactions(block.RawTransactions, block.Timestamp, block.BaseFeePerGas, accountsCache)
 	}
 
+	// combine rewards as minted
 	minted.Add(blockReward, uncleRewards)
 
 	block.Transactions = transactions
@@ -278,7 +184,6 @@ func (c *Crawler) syncBlock(block models.Block, task *syncronizer.Task) {
 
 	// if block contains transactions update accounts
 	accounts := accountsCache.Keys()
-	// fmt.Printf("%v", accounts)
 	for x := 0; x < len(accounts); x++ {
 		address := fmt.Sprintf("%v", accounts[x])
 		balance, fail := c.rpc.GetBalance(address, block.Number)
@@ -293,21 +198,16 @@ func (c *Crawler) syncBlock(block models.Block, task *syncronizer.Task) {
 		}
 	}
 
+	// clear cache
 	accountsCache.Purge()
-	// get state and update accounts
-	// state, _ := c.rpc.GetState(block.Number)
-	// for k, v := range state.Accounts {
-	// 	switch a := v.(type) {
-	// 	case map[string]interface{}:
-	// 		account := models.Account{Address: k, Balance: fmt.Sprintf("%v", a["balance"])}
-	// 		err = c.backend.AddAccount(&account)
-	// 		if err != nil {
-	// 			c.logger.Error("couldn't add account", "err", err, "address", k)
-	// 		}
-	// 	default:
-	// 		// do nothing
-	// 	}
-	// }
+
+	// perform trace
+	trace, fail := c.rpc.TraceBlock(block.Number)
+	if fail != nil {
+		c.logger.Error("couldn't get trace", "err", fail, "block", block.Number)
+	} else {
+		block.Trace = trace
+	}
 
 	// write block to db
 	err = c.backend.AddBlock(&block)
@@ -457,6 +357,11 @@ func (c *Crawler) processTransaction(tx *models.Transaction, receipt models.TxRe
 	tx.Status = receipt.Status
 	tx.BaseFeePerGas = baseFeePerGas
 
+	trace := c.getTransactionTrace(*tx)
+	if trace != nil {
+		tx.Trace = *trace
+	}
+
 	err := c.backend.AddTransaction(tx)
 	if err != nil {
 		c.logger.Error("couldn't insert tx into backend", "err", err)
@@ -484,6 +389,17 @@ func (c *Crawler) processTransaction(tx *models.Transaction, receipt models.TxRe
 	if tx.To != "" && tx.To != "0x" && tx.To != "0x0000000000000000000000000000000000000000" {
 		accounts.ContainsOrAdd(tx.To, true)
 	}
+}
+
+func (c *Crawler) getTransactionTrace(txn models.Transaction) *models.InternalTx {
+
+	itx, err := c.rpc.TraceTransaction(txn.Hash)
+	if err != nil {
+		c.logger.Error("couldn't get internal tx", "hash", txn.Hash, "bn", txn.BlockNumber, "err", err)
+		return nil
+	}
+
+	return &itx
 }
 
 func (c *Crawler) processTokenTransfer(transfer *models.TokenTransfer, tx *models.Transaction) {

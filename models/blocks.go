@@ -115,4 +115,35 @@ type Block struct {
 	BaseFeePerGas string `bson:"baseFeePerGas" json:"baseFeePerGas,omitempty"`
 	Burned        string `bson:"burned" json:"burned,omitempty"`
 	TotalBurned   string `bson:"totalBurned" json:"totalBurned,omitempty"`
+	//
+	Trace []BlockTrace `bson:"trace" json:"trace,omitempty"`
+}
+
+type StructLog struct {
+	Depth   uint64   `bson:"depth" json:"depth"`
+	Gas     uint64   `bson:"gas" json:"gas"`
+	GasCost uint64   `bson:"gasCost" json:"gasCost"`
+	Op      string   `bson:"op" json:"op"`
+	Pc      uint64   `bson:"pc" json:"pc"`
+	Stack   []string `bson:"stack" json:"stack"`
+}
+
+type RawBlockTrace struct {
+	Result BlockTrace `bson:"result" json:"result,omitempty"`
+}
+
+type BlockTrace struct {
+	Failed      bool        `bson:"failed" json:"failed"`
+	Gas         uint64      `bson:"gas" json:"gas"`
+	ReturnValue string      `bson:"returnValue" json:"returnValue"`
+	StructLogs  []StructLog `bson:"structLogs" json:"structLogs"`
+}
+
+func (rbt *RawBlockTrace) Convert() BlockTrace {
+	return BlockTrace{
+		Failed:      rbt.Result.Failed,
+		Gas:         rbt.Result.Gas,
+		ReturnValue: rbt.Result.ReturnValue,
+		StructLogs:  rbt.Result.StructLogs,
+	}
 }

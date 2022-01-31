@@ -168,6 +168,24 @@ func (r *RPCClient) Ping() (string, error) {
 	return version, nil
 }
 
+func (r *RPCClient) TraceBlock(blockNumber uint64) ([]models.BlockTrace, error) {
+	var trace []models.RawBlockTrace
+
+	err := r.client.Call(&trace, "debug_traceBlockByNumber", hexutil.EncodeUint64(blockNumber))
+
+	if err != nil {
+		return []models.BlockTrace{}, err
+	}
+
+	count := len(trace)
+	traces := make([]models.BlockTrace, count)
+	for i := 0; i < count; i++ {
+		traces[i] = trace[i].Convert()
+	}
+
+	return traces, nil
+}
+
 func (r *RPCClient) TraceTransaction(hash string) (models.InternalTx, error) {
 	var trace models.RawTxTrace
 
