@@ -201,7 +201,7 @@ func (c *Crawler) syncBlock(block models.Block, task *syncronizer.Task) {
 	// clear cache
 	accountsCache.Purge()
 
-	// perform trace
+	// perform trace on block
 	trace, fail := c.rpc.TraceBlock(block.Number)
 	if fail != nil {
 		c.logger.Error("couldn't get trace", "err", fail, "block", block.Number)
@@ -273,6 +273,24 @@ func (c *Crawler) processUncles(block *models.Block, uncles []models.Uncle, acco
 
 	return blockReward, uRewards, minted
 
+}
+
+func (c *Crawler) proccessItxns(trace models.InternalTx) []models.InternalTx {
+	var internalTxns []models.InternalTx
+	if len(trace.Calls) > 0 {
+		calls := trace.Calls
+		for x := 0; x < len(calls); x++ {
+			if calls[x].Value != "" && calls[x].Value != "0" {
+				internalTxns = append(internalTxns, calls[x])
+			}
+			if len(calls[x].Calls) > 0 {
+				subItxns := c.proccessItxns(calls[x])
+				internalTxns = append(internalTxns, subItxns...)
+			}
+		}
+	}
+
+	return internalTxns
 }
 
 func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uint64, baseFeePerGas string, accounts *lru.Cache) (transactions []models.Transaction, avgGasPrice, txFees *big.Int, tokenTransfers, contractsDeployed, contractCalls int) {
@@ -357,10 +375,14 @@ func (c *Crawler) processTransaction(tx *models.Transaction, receipt models.TxRe
 	tx.Status = receipt.Status
 	tx.BaseFeePerGas = baseFeePerGas
 
+	// perform trace
 	trace := c.getTransactionTrace(*tx)
 	if trace != nil {
 		tx.Trace = *trace
 	}
+
+	// look for internal transactions
+	tx.InternalTxns = c.proccessItxns(tx.Trace)
 
 	err := c.backend.AddTransaction(tx)
 	if err != nil {

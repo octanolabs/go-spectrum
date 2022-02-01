@@ -79,6 +79,8 @@ type Transaction struct {
 	BaseFeePerGas        string `bson:"baseFeePerGas" json:"baseFeePerGas,omitempty"`
 	//
 	Trace InternalTx `bson:"trace,omitempty" json:"trace,omitempty"`
+	//
+	InternalTxns []InternalTx `bson:"itxns" json:"itxns,omitempty"`
 }
 
 func (tx *Transaction) IsTokenTransfer() bool {
