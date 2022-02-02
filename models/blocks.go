@@ -117,6 +117,8 @@ type Block struct {
 	TotalBurned   string `bson:"totalBurned" json:"totalBurned,omitempty"`
 	//
 	Trace []BlockTrace `bson:"trace" json:"trace,omitempty"`
+	//
+	ITransactions []ITransaction `bson:"iTransactions" json:"iTransactions,omitempty"`
 }
 
 type StructLog struct {

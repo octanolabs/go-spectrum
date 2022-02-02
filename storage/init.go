@@ -96,6 +96,8 @@ func (m *MongoDB) Init(rpc *rpc.RPCClient) {
 	genesis.Burned = "0"
 	genesis.TotalBurned = "0"
 	genesis.Transactions = transactions
+	genesis.ITransactions = make([]models.ITransaction, 0)
+	genesis.Trace = make([]models.BlockTrace, 0)
 
 	collection = m.C(models.BLOCKS)
 

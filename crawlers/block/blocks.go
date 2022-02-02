@@ -165,14 +165,16 @@ func (c *Crawler) syncBlock(block models.Block, task *syncronizer.Task) {
 	supply.Sub(supply, burnedUint64)
 
 	transactions := make([]models.Transaction, len(block.Transactions))
+	itxns := make([]models.ITransaction, 0)
 	if len(block.Transactions) > 0 {
-		transactions, avgGasPrice, txFees, tokenTransfers, contractsDeployed, contractCalls = c.processTransactions(block.RawTransactions, block.Timestamp, block.BaseFeePerGas, accountsCache)
+		transactions, itxns, avgGasPrice, txFees, tokenTransfers, contractsDeployed, contractCalls = c.processTransactions(block.RawTransactions, block.Timestamp, block.BaseFeePerGas, accountsCache)
 	}
 
 	// combine rewards as minted
 	minted.Add(blockReward, uncleRewards)
 
 	block.Transactions = transactions
+	block.ITransactions = itxns
 	block.TokenTransfers = tokenTransfers
 	block.AvgGasPrice = avgGasPrice.String()
 	block.TxFees = txFees.String()
@@ -275,25 +277,41 @@ func (c *Crawler) processUncles(block *models.Block, uncles []models.Uncle, acco
 
 }
 
-func (c *Crawler) proccessItxns(trace models.InternalTx) []models.InternalTx {
-	var internalTxns []models.InternalTx
-	if len(trace.Calls) > 0 {
-		calls := trace.Calls
+func (c *Crawler) proccessItxns(call models.ITransaction, parentHash string, blockNumber uint64, root bool) []models.ITransaction {
+	var iTransactions []models.ITransaction
+
+	// skip root call and any which contain no native transfer
+	if call.Value != "0" && call.Value != "" && root != true {
+		var itxn = models.ITransaction{
+			ParentHash:  parentHash,
+			BlockNumber: blockNumber,
+			Type:        call.Type,
+			From:        call.From,
+			To:          call.To,
+			Value:       call.Value,
+			Gas:         call.Gas,
+			GasUsed:     call.GasUsed,
+			Input:       call.Input,
+			Output:      call.Output,
+			Calls:       call.Calls,
+		}
+		iTransactions = append(iTransactions, itxn)
+	}
+
+	if len(call.Calls) > 0 {
+		calls := call.Calls
 		for x := 0; x < len(calls); x++ {
-			if calls[x].Value != "" && calls[x].Value != "0" {
-				internalTxns = append(internalTxns, calls[x])
-			}
-			if len(calls[x].Calls) > 0 {
-				subItxns := c.proccessItxns(calls[x])
-				internalTxns = append(internalTxns, subItxns...)
+			subItxns := c.proccessItxns(calls[x], parentHash, blockNumber, false)
+			if len(subItxns) > 0 {
+				iTransactions = append(iTransactions, subItxns...)
 			}
 		}
 	}
 
-	return internalTxns
+	return iTransactions
 }
 
-func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uint64, baseFeePerGas string, accounts *lru.Cache) (transactions []models.Transaction, avgGasPrice, txFees *big.Int, tokenTransfers, contractsDeployed, contractCalls int) {
+func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uint64, baseFeePerGas string, accounts *lru.Cache) (transactions []models.Transaction, itxns []models.ITransaction, avgGasPrice, txFees *big.Int, tokenTransfers, contractsDeployed, contractCalls int) {
 
 	data := &data{
 		gasPrice:          big.NewInt(0),
@@ -304,7 +322,7 @@ func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uin
 	}
 
 	transactions = make([]models.Transaction, len(txs))
-
+	itxns = make([]models.ITransaction, 0)
 	// maxRoutines equal to 2 times the number of txs to account for possible token transfers
 	txSync := syncronizer.NewSync(len(txs) * 2)
 
@@ -332,6 +350,9 @@ func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uin
 
 			c.processTransaction(&tx, receipt, data, baseFeePerGas, accounts)
 			transactions[tx.TransactionIndex] = tx
+			if len(tx.ITransactions) > 0 {
+				itxns = append(itxns, tx.ITransactions...)
+			}
 		})
 
 		// If tx is a token transfer we add another link right after
@@ -356,7 +377,7 @@ func (c *Crawler) processTransactions(txs []models.RawTransaction, timestamp uin
 
 	txSync.Finish()
 
-	return transactions, data.gasPrice.Div(data.gasPrice, big.NewInt(int64(len(txs)))), data.txFees, data.tokenTransfers, data.contractsDeployed, data.contractCalls
+	return transactions, itxns, data.gasPrice.Div(data.gasPrice, big.NewInt(int64(len(txs)))), data.txFees, data.tokenTransfers, data.contractsDeployed, data.contractCalls
 }
 
 func (c *Crawler) processTransaction(tx *models.Transaction, receipt models.TxReceipt, data *data, baseFeePerGas string, accounts *lru.Cache) {
@@ -379,10 +400,9 @@ func (c *Crawler) processTransaction(tx *models.Transaction, receipt models.TxRe
 	trace := c.getTransactionTrace(*tx)
 	if trace != nil {
 		tx.Trace = *trace
+		// look for internal transactions
+		tx.ITransactions = c.proccessItxns(*trace, tx.Hash, tx.BlockNumber, true)
 	}
-
-	// look for internal transactions
-	tx.InternalTxns = c.proccessItxns(tx.Trace)
 
 	err := c.backend.AddTransaction(tx)
 	if err != nil {
@@ -413,7 +433,7 @@ func (c *Crawler) processTransaction(tx *models.Transaction, receipt models.TxRe
 	}
 }
 
-func (c *Crawler) getTransactionTrace(txn models.Transaction) *models.InternalTx {
+func (c *Crawler) getTransactionTrace(txn models.Transaction) *models.ITransaction {
 
 	itx, err := c.rpc.TraceTransaction(txn.Hash)
 	if err != nil {

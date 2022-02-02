@@ -119,7 +119,7 @@ func (m *MongoDB) UpdateStore() error {
 	var (
 		txCount, transferCount, uncleCount, forkedBlockCount, contractsDeployedCount, contractCallsCount int64
 		latestBlock                                                                                      models.Block
-		latestTrace                                                                                      models.TxTrace
+		latestTrace                                                                                      models.ITransaction
 	)
 
 	collection := m.C(models.STORE)
@@ -169,7 +169,7 @@ func (m *MongoDB) UpdateStore() error {
 		"updated":                time.Now().Unix(),
 		"supply":                 latestBlock.Supply,
 		"latestBlock":            latestBlock,
-		"latestTraceHash":        latestTrace.OriginTxHash,
+		"latestTraceHash":        latestTrace.ParentHash,
 		"totalTransactions":      txCount,
 		"totalContractsDeployed": contractsDeployedCount,
 		"totalContractCalls":     contractCallsCount,

@@ -126,23 +126,23 @@ func (m *MongoDB) TotalTxnCount() (int64, error) {
 
 // Tx trace
 
-func (m *MongoDB) TxTrace(hash string) (models.InternalTx, error) {
-	var itxn models.TxTrace
+func (m *MongoDB) TxTrace(hash string) (models.ITransaction, error) {
+	var itxn models.ITransaction
 
-	c := m.C(models.INTERNALTXNS).FindOne(context.Background(), bson.M{"hash": hash}, options.FindOne())
+	c := m.C(models.INTERNALTXNS).FindOne(context.Background(), bson.M{"parentHash": hash}, options.FindOne())
 
 	err := c.Decode(&itxn)
 	if err != nil {
-		return models.InternalTx{}, err
+		return models.ITransaction{}, err
 	}
 
-	return itxn.Trace, err
+	return itxn, err
 }
 
-func (m *MongoDB) LatestTxTrace() (models.TxTrace, error) {
-	var trace models.TxTrace
+func (m *MongoDB) LatestTxTrace() (models.ITransaction, error) {
+	var trace models.ITransaction
 
-	err := m.C(models.INTERNALTXNS).FindOne(context.Background(), bson.M{}, options.FindOne().SetSort(bson.D{{"number", -1}})).Decode(&trace)
+	err := m.C(models.INTERNALTXNS).FindOne(context.Background(), bson.M{}, options.FindOne().SetSort(bson.D{{"blockNumber", -1}})).Decode(&trace)
 	return trace, err
 }
 

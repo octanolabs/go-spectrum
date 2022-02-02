@@ -186,7 +186,7 @@ func (r *RPCClient) TraceBlock(blockNumber uint64) ([]models.BlockTrace, error) 
 	return traces, nil
 }
 
-func (r *RPCClient) TraceTransaction(hash string) (models.InternalTx, error) {
+func (r *RPCClient) TraceTransaction(hash string) (models.ITransaction, error) {
 	var trace models.RawTxTrace
 
 	c, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
@@ -199,7 +199,7 @@ func (r *RPCClient) TraceTransaction(hash string) (models.InternalTx, error) {
 		"timeout": "300s",
 	})
 	if err != nil {
-		return models.InternalTx{}, err
+		return models.ITransaction{}, err
 	}
 
 	return trace.Convert(), nil

@@ -21,7 +21,7 @@ func (m *MongoDB) AddTransaction(tx *models.Transaction) error {
 	return nil
 }
 
-func (m *MongoDB) AddTxTrace(itxn *models.TxTrace) error {
+func (m *MongoDB) AddTxTrace(itxn *models.ITransaction) error {
 	collection := m.C(models.INTERNALTXNS)
 
 	if _, err := collection.InsertOne(context.Background(), itxn, options.InsertOne()); err != nil {

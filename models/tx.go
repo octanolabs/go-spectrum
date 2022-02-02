@@ -78,9 +78,9 @@ type Transaction struct {
 	Type                 string `bson:"type" json:"type,omitempty"`
 	BaseFeePerGas        string `bson:"baseFeePerGas" json:"baseFeePerGas,omitempty"`
 	//
-	Trace InternalTx `bson:"trace,omitempty" json:"trace,omitempty"`
+	Trace ITransaction `bson:"trace,omitempty" json:"trace,omitempty"`
 	//
-	InternalTxns []InternalTx `bson:"itxns" json:"itxns,omitempty"`
+	ITransactions []ITransaction `bson:"iTransactions" json:"iTransactions,omitempty"`
 }
 
 func (tx *Transaction) IsTokenTransfer() bool {
@@ -293,8 +293,8 @@ type RawTxTrace struct {
 	Calls   []RawTxTrace `json:"calls,omitempty"`
 }
 
-func (rtt *RawTxTrace) Convert() InternalTx {
-	t := InternalTx{
+func (rtt *RawTxTrace) Convert() ITransaction {
+	t := ITransaction{
 		Type:    rtt.Type,
 		From:    rtt.From,
 		To:      rtt.To,
@@ -307,7 +307,7 @@ func (rtt *RawTxTrace) Convert() InternalTx {
 	}
 
 	if rtt.Calls != nil {
-		t.Calls = []InternalTx{}
+		t.Calls = []ITransaction{}
 		for _, nestedTrace := range rtt.Calls {
 			t.Calls = append(t.Calls, nestedTrace.Convert())
 		}
@@ -316,22 +316,17 @@ func (rtt *RawTxTrace) Convert() InternalTx {
 	return t
 }
 
-//TxTrace is a 'meta' schema that includes a trace, the originating txhash and the block number the it was included in
-type TxTrace struct {
-	OriginTxHash  string `json:"hash" bson:"hash"`
-	OriginBlockNo int64  `json:"number" bson:"number"`
-	Trace         InternalTx
-}
-
-// InternalTx the schema representing the state transitions
-type InternalTx struct {
-	Type    string       `json:"type" bson:"type"`
-	From    string       `json:"from" bson:"from"`
-	To      string       `json:"to" bson:"to"`
-	Value   string       `json:"value,omitempty" bson:"value,omitempty"` //convert to number -> string
-	Gas     string       `json:"gas" bson:"gas"`                         //convert to number -> string
-	GasUsed string       `json:"gasUsed" bson:"gasUsed"`                 //convert to number -> string
-	Input   string       `json:"input" bson:"input"`
-	Output  string       `json:"output" bson:"output"`
-	Calls   []InternalTx `json:"calls,omitempty" bson:"calls,omitempty"`
+// ITransaction the schema representing internal transactions
+type ITransaction struct {
+	ParentHash  string         `json:"parentHash,omitempty" bson:"parentHash,omitempty"`
+	BlockNumber uint64         `json:"blockNumber,omitempty" bson:"blockNumber,omitempty"`
+	Type        string         `json:"type" bson:"type"`
+	From        string         `json:"from" bson:"from"`
+	To          string         `json:"to" bson:"to"`
+	Value       string         `json:"value,omitempty" bson:"value,omitempty"` //convert to number -> string
+	Gas         string         `json:"gas" bson:"gas"`                         //convert to number -> string
+	GasUsed     string         `json:"gasUsed" bson:"gasUsed"`                 //convert to number -> string
+	Input       string         `json:"input" bson:"input"`
+	Output      string         `json:"output" bson:"output"`
+	Calls       []ITransaction `json:"calls,omitempty" bson:"calls,omitempty"`
 }

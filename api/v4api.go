@@ -32,8 +32,8 @@ type v4api interface {
 	TransactionByContractAddress(hash string) (models.Transaction, error)
 	TxnCount(hash string) (int64, error)
 	TotalTxnCount() (int64, error)
-	TxTrace(hash string) (models.InternalTx, error)
-	LatestTxTrace() (models.TxTrace, error)
+	TxTrace(hash string) (models.ITransaction, error)
+	LatestTxTrace() (models.ITransaction, error)
 
 	//transfers
 	TokenTransfersByAccount(account string) ([]models.TokenTransfer, error)

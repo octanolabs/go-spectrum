@@ -10,7 +10,7 @@ import (
 const (
 	BLOCKS        = "blocks"
 	TXNS          = "transactions"
-	INTERNALTXNS  = "internaltxns"
+	INTERNALTXNS  = "itransactions"
 	UNCLES        = "uncles"
 	CONTRACTS     = "contracts"
 	CONTRACTCALLS = "contractcalls"
