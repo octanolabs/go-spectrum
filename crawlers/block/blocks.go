@@ -296,6 +296,11 @@ func (c *Crawler) proccessItxns(call models.ITransaction, parentHash string, blo
 			Calls:       call.Calls,
 		}
 		iTransactions = append(iTransactions, itxn)
+
+		err := c.backend.AddInternalTransaction(&itxn)
+		if err != nil {
+			c.logger.Error("couldn't add internal transaction", "itxn", itxn, "err", err)
+		}
 	}
 
 	if len(call.Calls) > 0 {

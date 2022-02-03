@@ -18,7 +18,7 @@ import (
 
 func (m *MongoDB) Init(rpc *rpc.RPCClient) {
 
-	collection := m.C(models.TXNS)
+	collection := m.C(models.TRANSACTIONS)
 
 	txnIndex := new(big.Int).SetUint64(0)
 	initialSupply := new(big.Int).SetUint64(0)
@@ -35,7 +35,7 @@ func (m *MongoDB) Init(rpc *rpc.RPCClient) {
 	for k, v := range state.Accounts {
 		switch a := v.(type) {
 		case map[string]interface{}:
-			collection = m.C(models.TXNS)
+			collection = m.C(models.TRANSACTIONS)
 			// add accounts balance to initial supply
 			balanceStr := fmt.Sprintf("%v", a["balance"])
 			balance, _ := new(big.Int).SetString(balanceStr, 10)
@@ -162,7 +162,7 @@ func (m *MongoDB) initIndexes() {
 		log.Error("could not init index", "name", uIdxModel.Options.Name, "err", err)
 	}
 
-	iv = m.C(models.TXNS).Indexes()
+	iv = m.C(models.TRANSACTIONS).Indexes()
 
 	txHIdxModel := mongo.IndexModel{Keys: bson.M{"hash": 1}, Options: options.Index().SetName("txHashIndex").SetUnique(true)}
 	txBNIdxModel := mongo.IndexModel{Keys: bson.M{"blockNumber": 1}, Options: options.Index().SetName("txBlockNumberIndex")}
@@ -177,11 +177,11 @@ func (m *MongoDB) initIndexes() {
 		log.Error("could not init indexes for transactions", "err", err)
 	}
 
-	iv = m.C(models.INTERNALTXNS).Indexes()
+	iv = m.C(models.ITRANSACTIONS).Indexes()
 
-	internalTxnModel := mongo.IndexModel{Keys: bson.M{"hash": 1}, Options: options.Index().SetName("txHashIndex").SetUnique(true)}
-
-	_, err = iv.CreateOne(context.Background(), internalTxnModel, options.CreateIndexes())
+	iTxnFIdxModel := mongo.IndexModel{Keys: bson.M{"from": 1}, Options: options.Index().SetName("txFromIndex")}
+	iTxnTIdxModel := mongo.IndexModel{Keys: bson.M{"to": 1}, Options: options.Index().SetName("txToIndex")}
+	_, err = iv.CreateMany(context.Background(), []mongo.IndexModel{iTxnFIdxModel, iTxnTIdxModel}, options.CreateIndexes())
 
 	if err != nil {
 		log.Error("could not init indexes for internal tx", "err", err)

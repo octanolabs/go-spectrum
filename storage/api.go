@@ -126,7 +126,7 @@ func (m *MongoDB) LatestTransactions(limit int64) (map[string]interface{}, error
 		return result, err
 	}
 
-	c, err := m.C(models.TXNS).Find(context.Background(), bson.M{}, options.Find().SetSort(bson.D{{"blockNumber", -1}}).SetLimit(limit))
+	c, err := m.C(models.TRANSACTIONS).Find(context.Background(), bson.M{}, options.Find().SetSort(bson.D{{"blockNumber", -1}}).SetLimit(limit))
 
 	if err != nil {
 		return result, err
@@ -148,7 +148,7 @@ func (m *MongoDB) LatestFailedTransactions(limit int64) (map[string]interface{},
 
 	filter := bson.M{"$and": []bson.M{{"blockNumber": bson.M{"$gte": 1075090}}, {"status": false}}}
 
-	c, err := m.C(models.TXNS).Find(context.Background(), filter, options.Find().SetSort(bson.D{{"blockNumber", -1}}).SetLimit(limit))
+	c, err := m.C(models.TRANSACTIONS).Find(context.Background(), filter, options.Find().SetSort(bson.D{{"blockNumber", -1}}).SetLimit(limit))
 
 	if err != nil {
 		return result, err
@@ -158,7 +158,7 @@ func (m *MongoDB) LatestFailedTransactions(limit int64) (map[string]interface{},
 
 	result["txns"] = txns
 
-	count, err := m.C(models.TXNS).CountDocuments(context.Background(), filter, options.Count())
+	count, err := m.C(models.TRANSACTIONS).CountDocuments(context.Background(), filter, options.Count())
 	if err != nil {
 		return map[string]interface{}{}, err
 	}
@@ -295,7 +295,7 @@ func (m *MongoDB) LatestTransactionsByAccount(hash string) (map[string]interface
 		result = map[string]interface{}{}
 	)
 
-	c, err := m.C(models.TXNS).Find(context.Background(), bson.M{"$or": []bson.M{{"from": hash}, {"to": hash}}}, options.Find().SetSort(bson.D{{"blockNumber", -1}}).SetLimit(100))
+	c, err := m.C(models.TRANSACTIONS).Find(context.Background(), bson.M{"$or": []bson.M{{"from": hash}, {"to": hash}}}, options.Find().SetSort(bson.D{{"blockNumber", -1}}).SetLimit(100))
 
 	if err != nil {
 		return result, err

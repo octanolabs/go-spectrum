@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+
 	"github.com/octanolabs/go-spectrum/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -12,7 +13,7 @@ func (m *MongoDB) IterTransactions(from, to int64) (*mongo.Cursor, error) {
 
 	query := bson.M{"$and": []bson.M{{"timestamp": bson.M{"$gt": from}}, {"timestamp": bson.M{"$lt": to}}}}
 
-	return m.C(models.TXNS).Find(context.Background(), query, options.Find().SetHint(bson.M{"blockNumber": 1}).SetSort(bson.D{{"blockNumber", 1}}))
+	return m.C(models.TRANSACTIONS).Find(context.Background(), query, options.Find().SetHint(bson.M{"blockNumber": 1}).SetSort(bson.D{{"blockNumber", 1}}))
 }
 
 func (m *MongoDB) IterBlocks(from, to int64) (*mongo.Cursor, error) {

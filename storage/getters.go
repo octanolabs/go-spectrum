@@ -89,14 +89,14 @@ func (m *MongoDB) TotalForkedBlockCount() (int64, error) {
 func (m *MongoDB) TransactionByHash(hash string) (models.Transaction, error) {
 	var txn models.Transaction
 
-	err := m.C(models.TXNS).FindOne(context.Background(), bson.M{"hash": hash}, options.FindOne()).Decode(&txn)
+	err := m.C(models.TRANSACTIONS).FindOne(context.Background(), bson.M{"hash": hash}, options.FindOne()).Decode(&txn)
 	return txn, err
 }
 
 func (m *MongoDB) TransactionsByBlockNumber(number uint64) ([]models.Transaction, error) {
 	var txns = make([]models.Transaction, 0)
 
-	c, err := m.C(models.TXNS).Find(context.Background(), bson.M{"blockNumber": number}, options.Find())
+	c, err := m.C(models.TRANSACTIONS).Find(context.Background(), bson.M{"blockNumber": number}, options.Find())
 
 	if err != nil {
 		return txns, err
@@ -110,17 +110,17 @@ func (m *MongoDB) TransactionsByBlockNumber(number uint64) ([]models.Transaction
 func (m *MongoDB) TransactionByContractAddress(address string) (models.Transaction, error) {
 	var txn models.Transaction
 
-	err := m.C(models.TXNS).FindOne(context.Background(), bson.M{"contractAddress": address}, options.FindOne()).Decode(&txn)
+	err := m.C(models.TRANSACTIONS).FindOne(context.Background(), bson.M{"contractAddress": address}, options.FindOne()).Decode(&txn)
 	return txn, err
 }
 
 func (m *MongoDB) TxnCount(address string) (int64, error) {
-	count, err := m.C(models.TXNS).CountDocuments(context.Background(), bson.M{"$or": []bson.M{{"from": address}, {"to": address}}}, options.Count())
+	count, err := m.C(models.TRANSACTIONS).CountDocuments(context.Background(), bson.M{"$or": []bson.M{{"from": address}, {"to": address}}}, options.Count())
 	return count, err
 }
 
 func (m *MongoDB) TotalTxnCount() (int64, error) {
-	count, err := m.C(models.TXNS).CountDocuments(context.Background(), bson.M{}, options.Count())
+	count, err := m.C(models.TRANSACTIONS).CountDocuments(context.Background(), bson.M{}, options.Count())
 	return count, err
 }
 
@@ -129,7 +129,7 @@ func (m *MongoDB) TotalTxnCount() (int64, error) {
 func (m *MongoDB) TxTrace(hash string) (models.ITransaction, error) {
 	var itxn models.ITransaction
 
-	c := m.C(models.INTERNALTXNS).FindOne(context.Background(), bson.M{"parentHash": hash}, options.FindOne())
+	c := m.C(models.ITRANSACTIONS).FindOne(context.Background(), bson.M{"parentHash": hash}, options.FindOne())
 
 	err := c.Decode(&itxn)
 	if err != nil {
@@ -142,7 +142,7 @@ func (m *MongoDB) TxTrace(hash string) (models.ITransaction, error) {
 func (m *MongoDB) LatestTxTrace() (models.ITransaction, error) {
 	var trace models.ITransaction
 
-	err := m.C(models.INTERNALTXNS).FindOne(context.Background(), bson.M{}, options.FindOne().SetSort(bson.D{{"blockNumber", -1}})).Decode(&trace)
+	err := m.C(models.ITRANSACTIONS).FindOne(context.Background(), bson.M{}, options.FindOne().SetSort(bson.D{{"blockNumber", -1}})).Decode(&trace)
 	return trace, err
 }
 

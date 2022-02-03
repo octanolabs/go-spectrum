@@ -13,7 +13,7 @@ import (
 )
 
 func (m *MongoDB) AddTransaction(tx *models.Transaction) error {
-	collection := m.C(models.TXNS)
+	collection := m.C(models.TRANSACTIONS)
 
 	if _, err := collection.InsertOne(context.Background(), tx, options.InsertOne()); err != nil {
 		return err
@@ -21,8 +21,8 @@ func (m *MongoDB) AddTransaction(tx *models.Transaction) error {
 	return nil
 }
 
-func (m *MongoDB) AddTxTrace(itxn *models.ITransaction) error {
-	collection := m.C(models.INTERNALTXNS)
+func (m *MongoDB) AddInternalTransaction(itxn *models.ITransaction) error {
+	collection := m.C(models.ITRANSACTIONS)
 
 	if _, err := collection.InsertOne(context.Background(), itxn, options.InsertOne()); err != nil {
 		return err

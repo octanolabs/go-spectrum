@@ -86,7 +86,7 @@ func (m *MongoDB) PurgeBlock(height uint64) error {
 	}
 	log.Debug("purged %v blocks", "count", r.DeletedCount)
 
-	r, err = m.C(models.TXNS).DeleteMany(context.Background(), bson.M{"blockNumber": height}, options.Delete())
+	r, err = m.C(models.TRANSACTIONS).DeleteMany(context.Background(), bson.M{"blockNumber": height}, options.Delete())
 
 	if err != nil {
 		return err
@@ -204,7 +204,7 @@ func (m *MongoDB) LatestTxHashes(n int, startBlock uint64) ([]string, []int64, e
 		{{"$project", bson.D{{"hash", 1}, {"blockNumber", 1}, {"_id", 0}}}},
 	}
 
-	c, err := m.C(models.TXNS).Aggregate(context.Background(), pipe, options.Aggregate().SetHint("txBlockNumberIndex"))
+	c, err := m.C(models.TRANSACTIONS).Aggregate(context.Background(), pipe, options.Aggregate().SetHint("txBlockNumberIndex"))
 	if err != nil {
 		return nil, nil, err
 	}

@@ -9,8 +9,8 @@ import (
 
 const (
 	BLOCKS        = "blocks"
-	TXNS          = "transactions"
-	INTERNALTXNS  = "itransactions"
+	TRANSACTIONS  = "transactions"
+	ITRANSACTIONS = "itransactions"
 	UNCLES        = "uncles"
 	CONTRACTS     = "contracts"
 	CONTRACTCALLS = "contractcalls"
