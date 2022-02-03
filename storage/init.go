@@ -9,7 +9,6 @@ import (
 	"github.com/octanolabs/go-spectrum/models"
 	"github.com/octanolabs/go-spectrum/rpc"
 	"github.com/octanolabs/go-spectrum/util"
-	"github.com/ubiq/go-ubiq/v6/common"
 	"github.com/ubiq/go-ubiq/v6/log"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -31,48 +30,36 @@ func (m *MongoDB) Init(rpc *rpc.RPCClient) {
 
 	// get genesis state
 	state, _ := rpc.GetState(0)
-	transactions := make([]models.Transaction, len(state.Accounts))
+	iTransactions := make([]models.ITransaction, len(state.Accounts))
 	for k, v := range state.Accounts {
 		switch a := v.(type) {
 		case map[string]interface{}:
-			collection = m.C(models.TRANSACTIONS)
+			collection = m.C(models.ITRANSACTIONS)
 			// add accounts balance to initial supply
 			balanceStr := fmt.Sprintf("%v", a["balance"])
 			balance, _ := new(big.Int).SetString(balanceStr, 10)
 			initialSupply = initialSupply.Add(initialSupply, balance)
 
-			// produce a "hash"
-			suffix := new(big.Int).Set(txnIndex)
-			suffix.Add(suffix, new(big.Int).SetUint64(1)) // index + 1
-
-			bytes := common.LeftPadBytes(suffix.Bytes(), 64)
-			hash := common.BytesToHash(bytes)
-
 			// create txn and save to db
-			txn := models.Transaction{
-				BlockHash:        genesis.Hash,
-				BlockNumber:      0,
-				Hash:             hash.String(),
-				From:             "0x",
-				To:               k,
-				Gas:              0,
-				GasPrice:         0,
-				Nonce:            "0x" + txnIndex.Text(16),
-				TransactionIndex: txnIndex.Uint64(),
-				Type:             "genesis",
-				Logs:             []models.TxLog{},
-				Value:            balanceStr,
-				Timestamp:        genesis.Timestamp,
-				Input:            "0x",
-				BaseFeePerGas:    "0",
+			txn := models.ITransaction{
+				ParentHash:  "0x",
+				BlockNumber: 0,
+				From:        "0x0000000000000000000000000000000000000000",
+				To:          k,
+				Gas:         "0",
+				GasUsed:     "0",
+				Type:        "GENESIS",
+				Value:       balanceStr,
+				Input:       "0x",
+				Output:      "0x",
 			}
 			// save txn to db
-			if _, err := collection.UpdateOne(context.Background(), bson.M{"hash": txn.Hash}, bson.D{{"$set", &txn}}, options.Update().SetUpsert(true)); err != nil {
-				log.Error("couldn't add txn", "err", err, "txid", hash)
+			if _, err := collection.InsertOne(context.Background(), &txn); err != nil {
+				log.Error("couldn't add txn", "err", err, "itxn", txn)
 			}
 
 			// add txn to transactions array
-			transactions[txnIndex.Uint64()] = txn
+			iTransactions[txnIndex.Uint64()] = txn
 
 			// save account to db
 			collection = m.C(models.ACCOUNTS)
@@ -95,8 +82,8 @@ func (m *MongoDB) Init(rpc *rpc.RPCClient) {
 	genesis.Supply = initialSupply.String() // "36108073197716300000000000"
 	genesis.Burned = "0"
 	genesis.TotalBurned = "0"
-	genesis.Transactions = transactions
-	genesis.ITransactions = make([]models.ITransaction, 0)
+	genesis.Transactions = make([]models.Transaction, 0)
+	genesis.ITransactions = iTransactions
 	genesis.Trace = make([]models.BlockTrace, 0)
 
 	collection = m.C(models.BLOCKS)
