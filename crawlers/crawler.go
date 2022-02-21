@@ -6,7 +6,7 @@ import (
 
 	"github.com/octanolabs/go-spectrum/crawlers/block"
 	"github.com/octanolabs/go-spectrum/crawlers/database"
-	"github.com/ubiq/go-ubiq/v6/log"
+	"github.com/ubiq/go-ubiq/v7/log"
 )
 
 type Crawler interface {

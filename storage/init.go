@@ -9,7 +9,7 @@ import (
 	"github.com/octanolabs/go-spectrum/models"
 	"github.com/octanolabs/go-spectrum/rpc"
 	"github.com/octanolabs/go-spectrum/util"
-	"github.com/ubiq/go-ubiq/v6/log"
+	"github.com/ubiq/go-ubiq/v7/log"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"

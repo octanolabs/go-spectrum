@@ -5,8 +5,8 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/ubiq/go-ubiq/v6/log"
-	"github.com/ubiq/go-ubiq/v6/rpc"
+	"github.com/ubiq/go-ubiq/v7/log"
+	"github.com/ubiq/go-ubiq/v7/rpc"
 )
 
 type Config struct {

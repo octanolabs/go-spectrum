@@ -429,8 +429,10 @@ github.com/tklauser/numcpus v0.2.2/go.mod h1:x3qojaO3uyYt0i56EW/VUYs7uBvdl2fkfZF
 github.com/tyler-smith/go-bip39 v1.0.1-0.20181017060643-dbb3b84ba2ef/go.mod h1:sJ5fKU0s6JVwZjjcUEX2zFOnvq0ASQ2K9Zr6cf67kNs=
 github.com/uber/jaeger-client-go v2.28.0+incompatible/go.mod h1:WVhlPFC8FDjOFMMWRy2pZqQJSXxYSwNYOkTr/Z6d3Kk=
 github.com/uber/jaeger-lib v2.4.1+incompatible/go.mod h1:ComeNDZlWwrWnDv8aPp0Ba6+uUTzImX/AauajbLI56U=
-github.com/ubiq/go-ubiq/v6 v6.0.0 h1:ZfkuMHoTaOK2cR07yAczmHIIHC2nRGjR12pU67maPjw=
-github.com/ubiq/go-ubiq/v6 v6.0.0/go.mod h1:BITZ90ZXKE7k7bWzUg9Sb0k3wiC40MUPlDURRKWTqTE=
+github.com/ubiq/go-ubiq/v7 v6.0.0 h1:ZfkuMHoTaOK2cR07yAczmHIIHC2nRGjR12pU67maPjw=
+github.com/ubiq/go-ubiq/v7 v6.0.0/go.mod h1:BITZ90ZXKE7k7bWzUg9Sb0k3wiC40MUPlDURRKWTqTE=
+github.com/ubiq/go-ubiq/v7 v7.0.0 h1:6YBGVJpP4IKTY8f/C8LvUqUJfPxCqvXM9ymX9msl3mI=
+github.com/ubiq/go-ubiq/v7 v7.0.0/go.mod h1:kSM/1l0zX/JTVH2gy6PkUb2ySr2tBkFJABDRqgAnb54=
 github.com/ugorji/go v1.1.7/go.mod h1:kZn38zHttfInRq0xu/PH0az30d+z6vm202qpg1oXVMw=
 github.com/ugorji/go v1.2.1 h1:dz+JxTe7GZQdErTo7SREc1jQj/hFP1k7jyIAwODoW+k=
 github.com/ugorji/go v1.2.1/go.mod h1:cSVypSfTLm2o9fKxXvQgn3rMmkPXovcWor6Qn5tbFmI=

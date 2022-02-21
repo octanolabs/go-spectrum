@@ -2,7 +2,7 @@ package models
 
 import (
 	"github.com/octanolabs/go-spectrum/util"
-	"github.com/ubiq/go-ubiq/v6/log"
+	"github.com/ubiq/go-ubiq/v7/log"
 )
 
 type RawTransaction struct {

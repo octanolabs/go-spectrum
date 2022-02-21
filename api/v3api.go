@@ -15,7 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	json "github.com/json-iterator/go"
-	"github.com/ubiq/go-ubiq/v6/log"
+	"github.com/ubiq/go-ubiq/v7/log"
 )
 
 // v3 helper functions

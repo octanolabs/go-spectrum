@@ -7,11 +7,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/ubiq/go-ubiq/v6/log"
+	"github.com/ubiq/go-ubiq/v7/log"
 
 	"github.com/mitchellh/go-homedir"
-	"github.com/ubiq/go-ubiq/v6/common/hexutil"
-	"github.com/ubiq/go-ubiq/v6/rpc"
+	"github.com/ubiq/go-ubiq/v7/common/hexutil"
+	"github.com/ubiq/go-ubiq/v7/rpc"
 
 	"github.com/octanolabs/go-spectrum/models"
 	"github.com/octanolabs/go-spectrum/util"

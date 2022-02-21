@@ -5,14 +5,14 @@ package nodes
 //	"net"
 //	"time"
 //
-//	"github.com/ubiq/go-ubiq/v6/p2p"
+//	"github.com/ubiq/go-ubiq/v7/p2p"
 //
 //	"github.com/octanolabs/go-spectrum/storage"
-//	"github.com/ubiq/go-ubiq/v6/crypto"
-//	"github.com/ubiq/go-ubiq/v6/log"
-//	"github.com/ubiq/go-ubiq/v6/p2p/discover"
-//	"github.com/ubiq/go-ubiq/v6/p2p/enode"
-//	"github.com/ubiq/go-ubiq/v6/params"
+//	"github.com/ubiq/go-ubiq/v7/crypto"
+//	"github.com/ubiq/go-ubiq/v7/log"
+//	"github.com/ubiq/go-ubiq/v7/p2p/discover"
+//	"github.com/ubiq/go-ubiq/v7/p2p/enode"
+//	"github.com/ubiq/go-ubiq/v7/params"
 //)
 //
 ////TODO: revisit after merging upstream 1.9

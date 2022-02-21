@@ -1,9 +1,10 @@
 package database
 
 import (
-	"github.com/octanolabs/go-spectrum/storage"
-	"github.com/ubiq/go-ubiq/v6/log"
 	"time"
+
+	"github.com/octanolabs/go-spectrum/storage"
+	"github.com/ubiq/go-ubiq/v7/log"
 )
 
 type Crawler struct {

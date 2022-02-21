@@ -4,10 +4,10 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ubiq/go-ubiq/v6/consensus/ubqhash"
-	"github.com/ubiq/go-ubiq/v6/params"
+	"github.com/ubiq/go-ubiq/v7/consensus/ubqhash"
+	"github.com/ubiq/go-ubiq/v7/params"
 
-	"github.com/ubiq/go-ubiq/v6/log"
+	"github.com/ubiq/go-ubiq/v7/log"
 
 	"github.com/octanolabs/go-spectrum/models"
 )
