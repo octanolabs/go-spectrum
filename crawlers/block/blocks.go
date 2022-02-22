@@ -203,13 +203,17 @@ func (c *Crawler) syncBlock(block models.Block, task *syncronizer.Task) {
 	// clear cache
 	accountsCache.Purge()
 
+	// TODO(iquidus)
+	// Rethink this. Some responses are hitting the websocket read limit (15mb).
+	// Mongo also has a document size limit of 16mb. Bumping two separate limits
+	// does not seem like the correct approach.
 	// perform trace on block
-	trace, fail := c.rpc.TraceBlock(block.Number)
-	if fail != nil {
-		c.logger.Error("couldn't get trace", "err", fail, "block", block.Number)
-	} else {
-		block.Trace = trace
-	}
+	// trace, fail := c.rpc.TraceBlock(block.Number)
+	// if fail != nil {
+	// 	c.logger.Error("couldn't get trace", "err", fail, "block", block.Number)
+	// } else {
+	// 	block.Trace = trace
+	// }
 
 	// write block to db
 	err = c.backend.AddBlock(&block)
