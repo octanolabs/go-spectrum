@@ -315,6 +315,32 @@ func (m *MongoDB) LatestTransactionsByAccount(hash string) (map[string]interface
 	return result, err
 }
 
+func (m *MongoDB) LatestITransactionsByAccount(hash string) (map[string]interface{}, error) {
+	var (
+		txns   = make([]models.ITransaction, 0)
+		result = map[string]interface{}{}
+	)
+
+	c, err := m.C(models.ITRANSACTIONS).Find(context.Background(), bson.M{"$or": []bson.M{{"from": hash}, {"to": hash}}}, options.Find().SetSort(bson.D{{"blockNumber", -1}}).SetLimit(100))
+
+	if err != nil {
+		return result, err
+	}
+
+	err = c.All(context.Background(), &txns)
+
+	count, err := m.ITxnCount(hash)
+
+	if err != nil {
+		return result, err
+	}
+
+	result["itxns"] = txns
+	result["total"] = count
+
+	return result, err
+}
+
 func (m *MongoDB) LatestTokenTransfersByAccount(account string) (map[string]interface{}, error) {
 	var (
 		transfers = make([]models.TokenTransfer, 0)

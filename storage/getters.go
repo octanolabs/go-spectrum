@@ -119,6 +119,11 @@ func (m *MongoDB) TxnCount(address string) (int64, error) {
 	return count, err
 }
 
+func (m *MongoDB) ITxnCount(address string) (int64, error) {
+	count, err := m.C(models.ITRANSACTIONS).CountDocuments(context.Background(), bson.M{"$or": []bson.M{{"from": address}, {"to": address}}}, options.Count())
+	return count, err
+}
+
 func (m *MongoDB) TotalTxnCount() (int64, error) {
 	count, err := m.C(models.TRANSACTIONS).CountDocuments(context.Background(), bson.M{}, options.Count())
 	return count, err
